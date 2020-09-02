@@ -1,27 +1,17 @@
-import sys 
-import numpy as np
-import struct
-import scipy.fftpack as scp
-import matplotlib as tpl
 import os
 import io  
-import nltk
 from difflib import SequenceMatcher
 from difflib import get_close_matches
-import tfidf
-from pydub import AudioSegment
-import gensim
-from gensim import models
-from nltk.tokenize import word_tokenize, sent_tokenize
-#from get_silence import get_silence
-
-
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="apikey.json"
 from google.cloud.speech_v1 import enums
 from google.cloud import speech
 
 
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="apikey.json"
+
+
 language_code = "el-GR"
+
+# TODO make this main argument
 local_file_path = "audio4.wav"
 
 
@@ -68,7 +58,8 @@ with open('asrPrediction.txt', 'w' ) as myFile:
 
 #--------------------------text only score 1/Similarity------------------------------------
 
-#via difflib,compare two documents and ratio() returns a float in [0, 1], measuring the similarity of the sequences
+#via difflib,compare two documents and ratio() returns a float in [0, 1],
+# measuring the similarity of the sequences
 def to_translation_map(iterable):                       #a function to make a set of junk (None) characters
     return {key: None for key in iterable}
 
