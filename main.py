@@ -7,7 +7,9 @@ import matplotlib as tpl
 import os
 import io  
 import json
-
+import Levenshtein
+import webrtcvad
+from silenceremove import read_wave,write_wave,Frame,frame_generator,vad_collector
 from pydub import AudioSegment
 from google.cloud.speech_v1 import enums
 from google.cloud import speech
@@ -95,32 +97,123 @@ def text_to_text_alignment_and_score(text_ref,text_pred):
 	scoring = SimpleScoring(1, 0)
 	aligner = GlobalSequenceAligner(scoring, 0)
 	f,score, encodeds = aligner.align(aEncoded, bEncoded,text_ref.split(),text_pred.split(), backtrace=True)
-	#print(f)
+	print(f)
 	#print(score)
-	#print(encodeds)
+	print(encodeds)
 
 	# Iterate over optimal alignments and print them.
 	for encoded in encodeds:
 	    alignment = v.decodeSequenceAlignment(encoded)
 	    #print ('Alignment:','\n',alignment)
-	    Score=alignment.score*100/len(text_ref.split())
+	    recall_score=alignment.score*100/len(text_ref.split())
+	    precision_score=alignment.score*100/len(text_pred)
 	    #print ('Score:',Score ,'%')
-	return alignment,Score
+	return alignment,recall_score,precision_score
 	    
 	#return matches #first element is always from reference text and second from asr
 
 
 
+
+def silence_removal(audio_path):
+	audio, sample_rate = read_wave(audio_path)
+	vad = webrtcvad.Vad(int(1))
+	frames = frame_generator(30, audio, sample_rate)
+	frames = list(frames)
+	segments = vad_collector(sample_rate, 30, 300, vad, frames)
+
+	# Segmenting the Voice audio and save it in list as bytes
+	concataudio = [segment for segment in segments]
+	joinedaudio = b"".join(concataudio)
+	write_wave("Non-Silenced-Audio.wav", joinedaudio, sample_rate)
+
+def adjust_asr_results(asr_results,second):
+	adjusted_results = []
+	i=0
+	for j in range(0,len(second)):
+		if asr_results[i]['word'].lower() == second[j]:
+			adjusted_results.append(asr_results[i]) 
+			i=i+1
+		else:
+			adjusted_results.append({"word": second[j],"st": 0.0,"et" : 0.0})
+	return adjusted_results
+
+
+
+
+
+def calculate_score_after_alignment(A,B):
+	total_score=0.0
+	k=len(A)
+	ref_words=0
+	asr_words=0
+	for j in range(0,k):
+		if A[j]!='-':
+			ref_words=ref_words+1
+		if B[j]!='-':
+			asr_words=asr_words+1
+		if A[j] == B[j]:
+			total_score = total_score + 1.0
+		elif B[j] != '-' and A[j] != '-':
+			total_score = total_score + Levenshtein.ratio(A[j],B[j]) 
+	recall_score=total_score*100/ref_words
+	precision_score=total_score*100/asr_words
+	return recall_score,precision_score
+
+
+def windows(first,second,adjusted_results, length, step):
+    if step == 0: # otherwise infinte loop
+        raise ValueError("Parameter 'm' can't be 0")
+    i = length  #center of window
+    
+    k=len(second)-1
+    while i + length < adjusted_results[k]['et']:
+    	ListA=[]
+    	ListB=[]
+    	flag=False
+    	for j in range(0,len(second)):
+    		bottom=i-length
+    		up=i+length
+    		if adjusted_results[j]['st'] >= bottom and adjusted_results[j]['st'] <= up:
+    			ListA.append(first[j])
+    			ListB.append(second[j])
+    			flag=True
+    		else:
+    			if adjusted_results[j]['st']==0.0 and adjusted_results[j]['et'] == 0.0:
+    				ListA.append(first[j])
+    				ListB.append(second[j])
+    				flag=False
+    			if flag==True:
+    				break
+    	print(ListA,ListB)
+    	recall_score,precision_score=calculate_score_after_alignment(ListA,ListB)
+    	print('Recall score from',"%.1f" % (i-length),'sec','to',"%.1f" %(i+length),'sec','is:',recall_score,'%')
+    	print('Precision score from',"%.1f" % (i-length),'sec','to',"%.1f" %(i+length),'sec','is:',precision_score,'%')
+    	print('Avarage score:',"%.1f" % (2*recall_score*precision_score/(recall_score+precision_score)),'%')
+    	i = i+step
+
 def main():
 	conf=load_conf_file('config.json')
 	
-	#asr_results,data=audio_to_asr_text(conf['audiofile'],conf['google_credentials'])
+	asr_results,data=audio_to_asr_text(conf['audiofile'],conf['google_credentials'])
 
 	ref_text=load_reference_data('reference.txt')
 	data = open('asrPrediction.txt').read()
-	alignment,score=text_to_text_alignment_and_score(ref_text,data)
+	alignment,recall_score,precision_score=text_to_text_alignment_and_score(ref_text,data)
+	print('Recall score:',recall_score,'%')
+	print('Precision score:',precision_score,'%')
+	print('Avarage score:',"%.1f" % (2*recall_score*precision_score/(recall_score+precision_score)),'%')
 	print ('Alignment:','\n',alignment)
-	print ('Score:',score ,'%')
+	#print(alignment.first.elements)
+	#print(alignment.second.elements)
+	#print(asr_results)
+	adjusted_results=adjust_asr_results(asr_results,alignment.second.elements)
+	#print(adjusted_results)
+	length=0.3
+	step=0.3
+	windows(alignment.first.elements,alignment.second.elements,adjusted_results,length,step)
+
+
 
 if __name__ == "__main__":
     main()
