@@ -135,7 +135,13 @@ def adjust_asr_results(asr_results,second):
 			adjusted_results.append(asr_results[i]) 
 			i=i+1
 		else:
-			adjusted_results.append({"word": second[j],"st": 0.0,"et" : 0.0})
+			if adjusted_results[j-1]['word']=='-':
+				adjusted_results.append(adjusted_results[j-1])
+			else:
+				k=adjusted_results[j-1]['et']
+				l=asr_results[i]['st']
+				mean=(k+l)/2
+				adjusted_results.append({"word": second[j],"st": mean,"et" : mean})
 	return adjusted_results
 
 
@@ -170,22 +176,13 @@ def windows(first,second,adjusted_results, length, step):
     while i + length < adjusted_results[k]['et']:
     	ListA=[]
     	ListB=[]
-    	flag=False
     	for j in range(0,len(second)):
     		bottom=i-length
     		up=i+length
     		if adjusted_results[j]['st'] >= bottom and adjusted_results[j]['st'] <= up:
     			ListA.append(first[j])
     			ListB.append(second[j])
-    			flag=True
-    		else:
-    			if adjusted_results[j]['st']==0.0 and adjusted_results[j]['et'] == 0.0:
-    				ListA.append(first[j])
-    				ListB.append(second[j])
-    				flag=False
-    			if flag==True:
-    				break
-    	print(ListA,ListB)
+    	#print(ListA,ListB)
     	recall_score,precision_score=calculate_score_after_alignment(ListA,ListB)
     	print('Recall score from',"%.1f" % (i-length),'sec','to',"%.1f" %(i+length),'sec','is:',recall_score,'%')
     	print('Precision score from',"%.1f" % (i-length),'sec','to',"%.1f" %(i+length),'sec','is:',precision_score,'%')
