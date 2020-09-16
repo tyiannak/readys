@@ -4,7 +4,7 @@ import text_scoring
 
 
 def load_conf_file(path):
-    with open(path, 'r') as f:
+    with open(path) as f:
         conf = json.load(f)
     return conf
 
