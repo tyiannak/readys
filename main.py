@@ -43,9 +43,8 @@ def audio_to_asr_text(audio_path, google_credentials_file):
 
     my_results = []
     response = client.long_running_recognize(config, audio).result()
-    flag = 0
-    for result in response.results:
-        flag += 1
+    data = ""
+    for flag, result in enumerate(response.results):
         alternative = result.alternatives[0]
         if flag == 1:
             data = alternative.transcript
@@ -84,10 +83,10 @@ def text_to_text_alignment_and_score(text_ref, text_pred):
     :return: 
     """
 
-    text_ref = text_ref.lower() 
+    text_ref = text_ref.lower()
     text_pred = text_pred.lower()
     iterable = [".", ","]
-    # convert the reference text in order not to contain , and . (junk characters)
+    # convert the reference text in order not to contain , and (junk characters)
     translation_map = str.maketrans(to_translation_map(iterable))
     text_ref = text_ref.translate(translation_map)
 
@@ -105,13 +104,16 @@ def text_to_text_alignment_and_score(text_ref, text_pred):
     aligner = GlobalSequenceAligner(scoring, 0)
     f, score, encodeds = aligner.align(a_enc, b_enc, text_ref.split(),
                                        text_pred.split(), backtrace=True)
-    print(encodeds)
 
-    # Iterate over optimal alignments and print them.
-    for encoded in encodeds:
-        alignment = v.decodeSequenceAlignment(encoded)
+    # get the first allignment if exists:
+    if len(encodeds) > 0:
+        alignment = v.decodeSequenceAlignment(encodeds[0])
         rec = alignment.score * 100 / len(text_ref.split())
         pre = alignment.score * 100 / len(text_pred)
+    else:
+        alignment = []
+        rec, pre = -1, -1
+
     return alignment, rec, pre
         
 
@@ -137,14 +139,14 @@ def adjust_asr_results(asr_results, second):
             adjusted_results.append(asr_results[i]) 
             i += 1
         else:
-            if adjusted_results[j-1]['word']=='-':
+            if adjusted_results[j-1]['word'] == '-':
                 adjusted_results.append(adjusted_results[j-1])
             else:
                 k = adjusted_results[j-1]['et']
                 l = asr_results[i]['st']
                 mean = (k+l) / 2
                 adjusted_results.append({"word": second[j], "st": mean,
-                                         "et" : mean})
+                                         "et": mean})
     return adjusted_results
 
 
@@ -173,8 +175,8 @@ def windows(first, second, adjusted_results, length, step):
     i = length  #center of window
     k = len(second)-1
     while i + length < adjusted_results[k]['et']:
-        list_a=[]
-        list_b=[]
+        list_a = []
+        list_b = []
         for j in range(0, len(second)):
             bottom = i - length
             up = i + length
@@ -206,7 +208,9 @@ def main():
     #print(alignment.first.elements)
     #print(alignment.second.elements)
     #print(asr_results)
+    print(asr_results)
     adjusted_results = adjust_asr_results(asr_results, alignment.second.elements)
+    print(adjusted_results)
     #print(adjusted_results)
     length = 0.3
     step = 0.3
