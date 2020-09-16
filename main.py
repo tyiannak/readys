@@ -1,16 +1,12 @@
 import sys 
 import numpy as np
-#import pyaudio
 import struct
 import scipy.fftpack as scp
 import matplotlib as tpl
 import os
 import io  
-import json
 import Levenshtein
-import webrtcvad
-from silenceremove import read_wave,write_wave,Frame,frame_generator,vad_collector
-from pydub import AudioSegment
+import json
 from google.cloud.speech_v1 import enums
 from google.cloud import speech
 from alignment.sequence import Sequence
@@ -113,7 +109,7 @@ def text_to_text_alignment_and_score(text_ref,text_pred):
 	#return matches #first element is always from reference text and second from asr
 
 
-
+"""
 
 def silence_removal(audio_path):
 	audio, sample_rate = read_wave(audio_path)
@@ -126,6 +122,8 @@ def silence_removal(audio_path):
 	concataudio = [segment for segment in segments]
 	joinedaudio = b"".join(concataudio)
 	write_wave("Non-Silenced-Audio.wav", joinedaudio, sample_rate)
+
+"""
 
 def adjust_asr_results(asr_results,second):
 	adjusted_results = []
