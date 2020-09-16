@@ -14,7 +14,16 @@ def load_conf_file(path):
         conf = json.load(f)
     return conf
 
-def audio_to_asr_text(audio_path,google_credentials_file):
+def audio_to_asr_text(audio_path, google_credentials_file):
+    """
+    Audio to asr using google speech API
+    :param audio_path: wav audio file to analyze
+    :param google_credentials_file:  path to google api credentials file
+    :return:
+        my_results: output dict of the format: ['word':..., 'st': ..., 'et':...]
+        data: raw text output (not structured)
+    """
+
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"]=google_credentials_file
     language_code = "el-GR"
     sample_rate_hertz = 44100
@@ -32,7 +41,6 @@ def audio_to_asr_text(audio_path,google_credentials_file):
     audio = {"content": content}
 
     my_results = []
-
     response = client.long_running_recognize(config, audio).result()
     flag = 0
     for result in response.results:
@@ -43,17 +51,16 @@ def audio_to_asr_text(audio_path,google_credentials_file):
         else:
             tran = alternative.transcript
             data = data +tran
-        #print('=' * 20)
-        #print('transcript: ' + alternative.transcript)
-        #print('confidence: ' + str(alternative.confidence))
         for w in alternative.words:
             my_results.append({"word": w.word, 
                "st": w.start_time.seconds + float(w.start_time.nanos) / 10**9,
                 "et": w.end_time.seconds + float(w.end_time.nanos) / 10**9
               })
     with open("asrPrediction.txt", "w") as f: 
-        f.write(data) 
-    return my_results,data;
+        f.write(data)
+
+    return my_results, data
+
 
 def load_reference_data(path):
     text = open(path).read()
@@ -185,7 +192,10 @@ def windows(first,second,adjusted_results, length, step):
 def main():
     conf=load_conf_file('config.json')
     
-    asr_results,data=audio_to_asr_text(conf['audiofile'],conf['google_credentials'])
+    asr_results, data = audio_to_asr_text(conf['audiofile'],
+                                          conf['google_credentials'])
+
+    print(asr_results)
 
     ref_text=load_reference_data('reference.txt')
     data = open('asrPrediction.txt').read()
