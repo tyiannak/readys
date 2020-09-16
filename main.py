@@ -44,7 +44,7 @@ def audio_to_asr_text(audio_path, google_credentials_file):
     response = client.long_running_recognize(config, audio).result()
     flag = 0
     for result in response.results:
-        flag = flag+1
+        flag = flag + 1
         alternative = result.alternatives[0]
         if flag==1:
             data = alternative.transcript
@@ -65,6 +65,7 @@ def audio_to_asr_text(audio_path, google_credentials_file):
 def load_reference_data(path):
     text = open(path).read()
     return text
+
 
 def to_translation_map(iterable):                        #a function to make a set of junk (None) characters
     return {key: None for key in iterable}
@@ -218,30 +219,6 @@ def main():
 if __name__ == "__main__":
     main()
 
-"""
-#------------------------------OLD VERSION/TRASH-------------------------------------------
-#--------------------------text only score 1/Similarity------------------------------------
-#=========================first way===========================================
-#via difflib,compare two documents and ratio() returns a float in [0, 1], measuring the similarity of the sequences
-def to_translation_map(iterable):                        #a function to make a set of junk (None) characters
-    return {key: None for key in iterable}
-
-text1 = open('asrPrediction.txt').read() 
-text2 = open('reference.txt').read()
-text1 = text1.lower()    #convert texts to consist of lower case characters only
-#print(text1)
-text2 = text2.lower()
-iterable = [".",","]
-translation_map = str.maketrans(to_translation_map(iterable)) #convert the reference text in order not to contain , and . (junk characters)
-text2 = text2.translate(translation_map)
-#print(text2)
-m = SequenceMatcher(None, text2, text1,False)
-#print(m.ratio())
-#k = m.ratio()
-#print("Text only score:",k*100 , "%")
-
-
-"""
 
 
 
