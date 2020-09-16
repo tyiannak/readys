@@ -1,8 +1,3 @@
-import sys 
-import numpy as np
-import struct
-import scipy.fftpack as scp
-import matplotlib as tpl
 import os
 import io  
 import Levenshtein
@@ -11,7 +6,7 @@ from google.cloud.speech_v1 import enums
 from google.cloud import speech
 from alignment.sequence import Sequence
 from alignment.vocabulary import Vocabulary
-from alignment.sequencealigner import SimpleScoring, GlobalSequenceAligner,StrictGlobalSequenceAligner, LocalSequenceAligner
+from alignment.sequencealigner import SimpleScoring, GlobalSequenceAligner
 
 
 def load_conf_file(path):
