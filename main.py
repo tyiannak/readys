@@ -1,8 +1,4 @@
-import Levenshtein
 import json
-from alignment.sequence import Sequence
-from alignment.vocabulary import Vocabulary
-from alignment.sequencealigner import SimpleScoring, GlobalSequenceAligner
 import asr
 import text_scoring
 
@@ -45,7 +41,7 @@ def main():
     print('Recall score:', rec, '%')
     print('Precision score:', pre, '%')
     print('Avarage score:',"%.1f" % (2 * rec * pre / (rec + pre)), '%')
-    print ('Alignment:','\n',alignment)
+    print ('Alignment:','\n', alignment)
     #print(alignment.first.elements)
     #print(alignment.second.elements)
     #print(asr_results)
@@ -56,12 +52,9 @@ def main():
     #print(adjusted_results)
     length = 0.5
     step = 0.1
-    text_scoring.windows(alignment.first.elements,
-                         alignment.second.elements, adjusted_results,
-                         length, step)
+    text_scoring.windows(alignment.first.elements, alignment.second.elements,
+                         adjusted_results, length, step)
 
 
 if __name__ == "__main__":
     main()
-
-
