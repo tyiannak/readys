@@ -2,6 +2,7 @@ import os
 import io
 from google.cloud.speech_v1 import enums
 from google.cloud import speech
+import audio_analysis
 
 
 def audio_to_asr_text(audio_path, google_credentials_file):
@@ -16,7 +17,7 @@ def audio_to_asr_text(audio_path, google_credentials_file):
 
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials_file
     language_code = "el-GR"
-    sample_rate_hertz = 44100
+    sample_rate_hertz = audio_analysis.get_wav_sample_rate(audio_path)
     encoding = enums.RecognitionConfig.AudioEncoding.LINEAR16
     client = speech.SpeechClient()
     config = {
