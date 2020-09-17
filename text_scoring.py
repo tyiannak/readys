@@ -44,7 +44,7 @@ def text_to_text_alignment_and_score(text_ref, text_pred):
     if len(encodeds) > 0:
         alignment = v.decodeSequenceAlignment(encodeds[0])
         rec = alignment.score * 100 / len(text_ref.split())
-        pre = alignment.score * 100 / len(text_pred)
+        pre = alignment.score * 100 / len(text_pred.split())
     else:
         alignment = []
         rec, pre = -1, -1
@@ -95,6 +95,8 @@ def windows(first, second, adjusted_results, length, step):
         raise ValueError("Parameter 'm' can't be 0")
     i = length  #center of window
     k = len(second)-1
+    recall_list=[]
+    precision_list=[]
     while i + length < adjusted_results[k]['et']:
         list_a = []
         list_b = []
@@ -106,9 +108,16 @@ def windows(first, second, adjusted_results, length, step):
                 list_a.append(first[j])
                 list_b.append(second[j])
         rec, pre = calculate_score_after_alignment(list_a, list_b)
+        recall_list.append({"x": i,"y":rec})
+        precision_list.append({"x":i,"y":pre})
         print('Recall score from', "%.1f" % (i-length),
               'sec', 'to', "%.1f" %(i+length), 'sec', 'is:', rec, '%')
         print('Precision score from', "%.1f" % (i-length), 'sec', 'to', "%.1f"
               % (i+length), 'sec', 'is:', pre, '%')
-        print('Avarage score:', "%.1f" % (2*rec*pre/(rec+pre)), '%')
-        i += step
+        if rec==0 and pre==0:
+            print('Avarage score:',0.0,'%')
+        else:
+            print('Avarage score:',"%.1f" % (2*rec*pre/(rec+pre)),'%')
+        i = i+step
+    return(recall_list,precision_list)
+        
