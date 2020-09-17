@@ -5,6 +5,9 @@ from google.cloud import speech
 import audio_analysis
 
 
+MAX_FILE_DURATION = 60 * 10
+
+
 def audio_to_asr_text(audio_path, google_credentials_file):
     """
     Audio to asr using google speech API
@@ -18,6 +21,7 @@ def audio_to_asr_text(audio_path, google_credentials_file):
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials_file
     language_code = "el-GR"
     fs, dur = audio_analysis.get_wav_properties(audio_path)
+    print(dur)
     encoding = enums.RecognitionConfig.AudioEncoding.LINEAR16
     client = speech.SpeechClient()
     config = {
