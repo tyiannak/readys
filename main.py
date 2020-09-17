@@ -37,8 +37,8 @@ def main():
     #print(adjusted_results)
     length = 0.5
     step = 0.1
-    text_scoring.windows(alignment.first.elements, alignment.second.elements,
-                         adjusted_results, length, step)
+    recall_list,precision_list=text_scoring.windows(alignment.first.elements, alignment.second.elements,
+                               adjusted_results, length, step)
 
 
 if __name__ == "__main__":
