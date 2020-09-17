@@ -17,12 +17,12 @@ def audio_to_asr_text(audio_path, google_credentials_file):
 
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials_file
     language_code = "el-GR"
-    sample_rate_hertz = audio_analysis.get_wav_sample_rate(audio_path)
+    fs, dur = audio_analysis.get_wav_properties(audio_path)
     encoding = enums.RecognitionConfig.AudioEncoding.LINEAR16
     client = speech.SpeechClient()
     config = {
             "language_code": language_code,
-            "sample_rate_hertz": sample_rate_hertz,
+            "sample_rate_hertz": fs,
             "enable_word_time_offsets": True,
             "encoding": encoding,
         }

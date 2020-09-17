@@ -1,15 +1,16 @@
 import wave
 
 
-def get_wav_sample_rate(wav_path):
+def get_wav_properties(wav_path):
     """
-    returns the sampling rate of a WAV file
+    Reads sampling rate and duration of an WAV audio file
     :param wav_path: path to the WAV file
-    :return: sampling rate in Hz
+    :return: sampling rate in Hz, duration in seconds
     """
     with wave.open(wav_path, "rb") as wave_file:
         fs = wave_file.getframerate()
-    return fs
+        duration = wave_file.getnframes() / float(fs)
+    return fs, duration
 
 
 # TODO Silence removal will go here
