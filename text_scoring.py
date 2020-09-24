@@ -85,8 +85,12 @@ def calculate_score_after_alignment(A, B):
             total_score += 1.0
         elif B[j] != '-' and A[j] != '-':
             total_score = total_score + Levenshtein.ratio(A[j], B[j]) 
-    rec = total_score * 100 / ref_words
-    pre = total_score * 100 / asr_words
+    if asr_words==0 or ref_words==0:
+        pre=0.0
+        rec=0.0
+    else:
+        rec=total_score*100/ref_words
+        pre=total_score*100/asr_words
     return rec, pre
 
 
@@ -107,6 +111,8 @@ def windows(first, second, adjusted_results, length, step):
                     adjusted_results[j]['st'] <= up:
                 list_a.append(first[j])
                 list_b.append(second[j])
+        print(list_a)
+        print(list_b)
         rec, pre = calculate_score_after_alignment(list_a, list_b)
         recall_list.append({"x": i,"y":rec})
         precision_list.append({"x":i,"y":pre})
