@@ -1,4 +1,1 @@
-{
-	"audiofile": "audio4.wav",
-	"google_credentials": "apikey.json"
-}
+{"audiofile": "output.wav", "google_credentials": "apikey.json", "reference_text": "mia_fora.txt"}
