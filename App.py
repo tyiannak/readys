@@ -1,20 +1,67 @@
+
 import dash
 import dash_core_components as dcc
-import dash_html_components as html
-import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output,State
 import dash_bootstrap_components as dbc
-
+import dash_html_components as html
 
 import plotly.graph_objects as go
 
-import sounddevice as sd
-from scipy.io.wavfile import write
 
 import pandas as pd 
-import numpy as np
-from subprocess import call
+
 import json
+from main import main
+
+
+import numpy as np
+import pyaudio
+import struct
+import matplotlib.pyplot as plt
+import plotly
+
+from scipy.io import wavfile
+
+global mid_buf
+global RECORD
+global block
+global PLOTTING
+PLOTTING= False
+
+
+
+
+def record():
+	fs = 44100
+	FORMAT = pyaudio.paInt16
+	block_size = 0.2  # window size in seconds
+
+	# inialize recording process
+	mid_buf_size = int(fs * block_size)
+	global mid_buf
+	global RECORD
+	RECORD = True
+	mid_buf = []
+	pa = pyaudio.PyAudio()
+	stream = pa.open(format=FORMAT, channels=1, rate=fs,
+					 input=True, frames_per_buffer=mid_buf_size)
+
+
+	while(RECORD):
+		global block
+		block = stream.read(mid_buf_size)
+		count_b = len(block) / 2
+		format = "%dh" % (count_b)
+		shorts = struct.unpack(format, block)
+		cur_win = list(shorts)
+		mid_buf = mid_buf + cur_win
+		#print(mid_buf)
+		del cur_win
+
+
+	pa.close(stream)
+
+
 
 def App(recall_score,precision_score,Df1,Df2):
 
@@ -110,6 +157,12 @@ layout_index= html.Div([
 
 layout_page_1 = html.Div([
 		dcc.Markdown(id='text'),
+		dcc.Graph(id='live-update-graph'),
+        dcc.Interval(
+            id='interval-component',
+            interval=200, # in milliseconds
+            n_intervals=0
+		),
 		html.Button('Record', id='btn', n_clicks=0),
 		html.Button('Stop',id='btn2',n_clicks=0),
 		html.Div(id='output',children='Hit the button to update'),
@@ -226,20 +279,58 @@ def text(pathname):
 	return text_markdown 
 
 @app.callback(
-	Output('output', 'children'),
-	[Input('btn','n_clicks')],
+	[Output('output', 'children'),Output('live-update-graph','figure')],
+	[Input('btn','n_clicks'),Input('btn2','n_clicks'),Input('interval-component','n_intervals')],
 	prevent_initial_call=True
 
 )
-def update(n):
-	fs = 44100  # Sample rate
-	seconds = 20 # Duration of recording
-	myrecording = sd.rec(int(seconds * fs), samplerate=fs, channels=1, dtype=np.int16)
-	sd.wait()  # Wait until recording is finished
-	write('output.wav', fs, myrecording)  # Save as WAV file
-	return 'Finished'
+def update(n1,n2,n):
 
+	ctx = dash.callback_context
+	button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+	global mid_buf
+	global block
+	global RECORD
+	global PLOTTING
+	#if record button is pressed, start recording(RECORD=True) and permit plotting(PLOTTING=True)
+	if (button_id=='btn'):
+		RECORD=True
+		PLOTTING = True
+		record()
+		return 'Stopped', {}
+	#if stop button is pressed,stop recording (RECORD=False) , stop plotting(PLOTTING=False) and write wav file
+	elif (button_id=='btn2'):
+		RECORD=False
+		PLOTTING=False
+		fs=44100
+		wavfile.write("output.wav", fs, np.int16(mid_buf))
+		return 'Finished', {}
+	#if 200msec have passed the below statement is triggered
+	else:
+		#plot only if plotting is permitted (PLOTTING=True)
+		while(PLOTTING):
+			fs = 44100
+			block_size = 0.2  # window size in seconds
+			mid_buf_size = int(fs * block_size)
+			fig = go.Figure()
+			x = np.arange(0, 2 * mid_buf_size, 2)
+			data = np.frombuffer(block, np.int16)
+			fig.add_trace(go.Scatter(x=x, y=data))
 
+			fig.update_layout(
+				autosize=False,
+				width=1500,
+				height=600,
+				yaxis=dict(
+					titlefont=dict(size=30),
+					range=(-10000,10000),
+				),
+				xaxis=dict(
+					range=(0,mid_buf_size),
+				)
+			)
+			return 'Recording',fig
+		return 'Hit the button to update',{}
 
 #Page 2 callbacks
 @app.callback(
@@ -248,8 +339,9 @@ def update(n):
 )
 def display_page(pathname):
     if pathname == '/score':
-    	script_path = '/home/sofia/pythonenv2/lib/python3.6/site-packages/main.py'
-    	call(["python3", script_path])
+    	#script_path = '/home/sofia/PycharmProjects/dyslexia/main.py'
+    	#call(["python3", script_path])
+    	main()
     	df = pd.read_pickle("score.pkl")
     	rec = df.loc[0,'recall']
     	pre = df.loc[0,'precision']
@@ -257,7 +349,7 @@ def display_page(pathname):
     	df2 = pd.read_pickle("precision_temporal.pkl")
     	fig,fig1=App(rec,pre,df1,df2)
     	return fig,fig1
-   
+   		
 
 
 if __name__ == "__main__":
