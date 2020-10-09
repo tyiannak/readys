@@ -88,6 +88,7 @@ def calculate_score_after_alignment(A, B):
     if asr_words==0 or ref_words==0:
         pre=0.0
         rec=0.0
+        f1=0.0
     else:
         rec=total_score*100/ref_words
         pre=total_score*100/asr_words
@@ -101,6 +102,9 @@ def windows(first, second, adjusted_results, length, step):
     k = len(second)-1
     recall_list=[]
     precision_list=[]
+    f1_list=[]
+    ref_text = []
+    asr_text = []
     while i + length < adjusted_results[k]['et']:
         list_a = []
         list_b = []
@@ -111,19 +115,18 @@ def windows(first, second, adjusted_results, length, step):
                     adjusted_results[j]['st'] <= up:
                 list_a.append(first[j])
                 list_b.append(second[j])
-        print(list_a)
-        print(list_b)
+        #print(list_a)
+        #print(list_b)
         rec, pre = calculate_score_after_alignment(list_a, list_b)
+        if rec==0.0 or pre==0.0:
+            f1 =0.0
+        else:
+            f1=2*rec*pre/(rec+pre)
         recall_list.append({"x": i,"y":rec})
         precision_list.append({"x":i,"y":pre})
-        print('Recall score from', "%.1f" % (i-length),
-              'sec', 'to', "%.1f" %(i+length), 'sec', 'is:', rec, '%')
-        print('Precision score from', "%.1f" % (i-length), 'sec', 'to', "%.1f"
-              % (i+length), 'sec', 'is:', pre, '%')
-        if rec==0 and pre==0:
-            print('Avarage score:',0.0,'%')
-        else:
-            print('Avarage score:',"%.1f" % (2*rec*pre/(rec+pre)),'%')
+        ref_text.append(list_a)
+        asr_text.append(list_b)
+        f1_list.append({"x":i,"y":f1})
         i = i+step
-    return(recall_list,precision_list)
+    return(recall_list,precision_list,f1_list,ref_text,asr_text)
         
