@@ -1,12 +1,10 @@
-import os
 import io
-from google.cloud.speech_v1 import enums
+import os
+from google.cloud.speech_v1.gapic import enums
 from google.cloud import speech
 import audio_analysis
 
-
 MAX_FILE_DURATION = 30
-
 
 def audio_to_asr_text(audio_path, google_credentials_file):
     """
@@ -21,13 +19,15 @@ def audio_to_asr_text(audio_path, google_credentials_file):
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials_file
     language_code = "el-GR"
 #    language_code = "en-US"
-    fs, dur = audio_analysis.get_wav_properties(audio_path)
+    fs, dur = audio_analysis .get_wav_properties(audio_path)
 
     cur_pos = 0
     my_results = []
     data = ""
 
+
     while cur_pos < dur:
+
         encoding = enums.RecognitionConfig.AudioEncoding.LINEAR16
         client = speech.SpeechClient()
         config = {
@@ -47,11 +47,12 @@ def audio_to_asr_text(audio_path, google_credentials_file):
             content = f.read()
         audio = {"content": content}
 
-        response = client.long_running_recognize(config, audio).result()
+        response = client.long_running_recognize(config,audio).result()
+
         for flag, result in enumerate(response.results):
             alternative = result.alternatives[0]
             data += alternative.transcript
-
+            number_of_words = len(alternative.words)
             for w in alternative.words:
                 my_results.append({"word": w.word,
                                    "st": w.start_time.seconds +
@@ -61,6 +62,6 @@ def audio_to_asr_text(audio_path, google_credentials_file):
                                          float(w.end_time.nanos) / 10**9 +
                                          cur_pos
                                    })
-        cur_pos += MAX_FILE_DURATION
 
-    return my_results, data
+        cur_pos += MAX_FILE_DURATION
+    return my_results, data,number_of_words,dur

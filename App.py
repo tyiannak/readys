@@ -6,24 +6,23 @@ import dash_html_components as html
 
 import plotly.graph_objects as go
 
-import pandas as pd
 
 import json
 from main import main
+from make_figures import make_figures
 
 import numpy as np
 import pyaudio
 import struct
-import matplotlib.pyplot as plt
-import plotly
+
 
 from scipy.io import wavfile
-from csv import reader
 global mid_buf
 global RECORD
 global block
-global PLOTTING
-PLOTTING = False
+
+
+
 
 
 def record():
@@ -55,77 +54,9 @@ def record():
     pa.close(stream)
 
 
-def App(rec, pre, f1, Df1, Df2, Df3):
-    X_Rlist = Df1['x'].to_numpy()
-    Y_Rlist = Df1['y'].to_numpy()
-    X_Plist = Df2['x'].to_numpy()
-    Y_Plist = Df2['y'].to_numpy()
-    X_Flist = Df3['x'].to_numpy()
-    Y_Flist = Df3['y'].to_numpy()
-
-    with open('Ref.csv','r') as read_obj:
-        csv_reader = reader(read_obj)
-        Ref=list(csv_reader)
-    with open('Asr.csv','r') as read_obj:
-        csv_reader = reader(read_obj)
-        Asr=list(csv_reader)
-
-    fig1 = go.Figure()
-    fig = go.Figure(data=[go.Table(
-        header=dict(values=[['<b>Recall score(%)</b>'], ['<b>Precision score(%)</b>'], ['<b>F1 Score(%)</b>']],
-                    fill_color='paleturquoise',
-                    align='left'),
-        cells=dict(values=[rec, pre, f1],
-                   fill_color='lavender',
-                   align='left'))
-    ])
-
-    fig1.add_trace(go.Scatter(x=X_Rlist, y=Y_Rlist,
-                              mode='lines+markers',
-                              name='recall score',
-                              marker=dict(color='rgb(179,226,205)')))
-
-    fig1.add_trace(go.Scatter(x=X_Plist, y=Y_Plist,
-                              mode='lines+markers',
-                              name='precision score',
-                              marker=dict(color='rgb(253,205,172)')))
-    fig1.add_trace(go.Scatter(x=X_Flist, y=Y_Flist,
-                              mode='lines+markers',
-                              name='F1 score',
-                              marker=dict(color='rgb(127,60,141)'),
-                              text=['Reference Text :{} \n Asr Text:{}'.format(Ref[i],Asr[i]) for i in range(len(X_Flist))],
-                              #text=['Asr Text {}'.format(Asr[i]) for i in range(len(X_Flist))],
-                              hovertemplate=
-                              '<b>%{text}</b>',
-                              showlegend=False
-                              ))
-
-    fig1.update_layout(
-        autosize=False,
-        width=1500,
-        height=600,
-        yaxis=dict(
-            title_text="Percentage temporal score",
-            tickmode="array",
-            titlefont=dict(size=30),
-        ),
-        xaxis=dict(
-            title_text="Center of window(time)",
-        )
-    )
-
-    return fig, fig1
-
 
 app = dash.Dash(__name__, suppress_callback_exceptions=True,
-                external_stylesheets=['https://codepen.io/chriddyp/pen/bWLwgP.css',
-                                      {
-                                          'href': 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css',
-                                          'rel': 'stylesheet',
-                                          'integrity': 'sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO',
-                                          'crossorigin': 'anonymous'
-                                      }
-                                      ]
+                external_stylesheets=[dbc.themes.BOOTSTRAP],
                 )
 
 url_bar_and_content_div = html.Div([
@@ -149,7 +80,7 @@ layout_index = html.Div(style={'text-align': 'center'}, children=[
 layout_page_1 = html.Div([
     html.Div(
         style=
-        {'height': '50px',
+        {'height': '70px',
          'border': '5px outset red',
          'background-color': '#ABBAEA',
          'text-align': 'center',
@@ -157,13 +88,14 @@ layout_page_1 = html.Div([
         children=
         [dcc.Markdown(id='text'), ]
     ),
-    html.Div(style={'text-align': 'center'}, id='graph-container', children=[
+    html.Div(style={'text-align': 'center','display':'none'}, id='graph-container', children=[
         dcc.Graph(id='live-update-graph'),
     ]),
     dcc.Interval(
         id='interval-component',
         interval=200,  # in milliseconds
-        n_intervals=0
+        n_intervals=0,
+        disabled=True,
     ),
     html.Div(style={'text-align': 'center'}, children=[
         html.Button('Record', id='btn', n_clicks=0),
@@ -180,7 +112,9 @@ layout_page_2 = html.Div([
         {'text-align': 'center',
          'font-size': '20px'},
         children=
-        [dcc.Markdown(id='text2', children="Please wait for your score to be computed..."), ]
+        [dcc.Markdown(id='text2', children="Please wait for your score to be computed..."),
+         dbc.Spinner(color="warning"),
+        ]
     ),
     html.Div(style={'display': 'none'}, id='graphs', children=[
         dcc.Graph(
@@ -292,82 +226,92 @@ def text(pathname):
             json.dump(json_data, file)
     return text_markdown
 
-
+#Page 2 callbacks
+#start recording when record is pressed and stop it when stop is pressed
 @app.callback(
-    [Output('output', 'children'), Output('graph-container', 'style'), Output('live-update-graph', 'figure')],
-    [Input('btn', 'n_clicks'), Input('btn2', 'n_clicks'), Input('interval-component', 'n_intervals')],
+    Output('output', 'children'),
+    [Input('btn', 'n_clicks'), Input('btn2', 'n_clicks')],
     prevent_initial_call=True
 
 )
-def update(n1, n2, n):
+def update(n1, n2):
     ctx = dash.callback_context
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
     global mid_buf
-    global block
     global RECORD
-    global PLOTTING
-    # if record button is pressed, start recording(RECORD=True) and permit plotting(PLOTTING=True)
+    # if record button is pressed, start recording(RECORD=True)
     if (button_id == 'btn'):
         RECORD = True
-        PLOTTING = True
         record()
-        return 'Stopped', {'display': 'none'}, {}
-    # if stop button is pressed,stop recording (RECORD=False) , stop plotting(PLOTTING=False) and write wav file
+        return 'Stopped'
+    # if stop button is pressed,stop recording (RECORD=False) and write wav file
     elif (button_id == 'btn2'):
         RECORD = False
-        PLOTTING = False
         fs = 44100
         wavfile.write("output.wav", fs, np.int16(mid_buf))
-        return 'Finished', {'display': 'none'}, {}
-    # if 200msec have passed the below statement is triggered
-    else:
-        # plot only if plotting is permitted (PLOTTING=True)
-        while (PLOTTING):
-            fs = 44100
-            block_size = 0.2  # window size in seconds
-            mid_buf_size = int(fs * block_size)
-            fig = go.Figure()
-            x = np.arange(0, 2 * mid_buf_size, 2)
-            data = np.frombuffer(block, np.int16)
-            fig.add_trace(go.Scatter(x=x, y=data))
-
-            fig.update_layout(
-                autosize=False,
-                width=1500,
-                height=600,
-                yaxis=dict(
-                    titlefont=dict(size=30),
-                    range=(-10000, 10000),
-                ),
-                xaxis=dict(
-                    range=(0, mid_buf_size),
-                )
-            )
-            return 'Recording', {'display': 'block'}, fig
-        return 'Hit the button to update', {'display': 'none'}, {}
+        return 'Finished'
 
 
-# Page 2 callbacks
+#enable time intervals when record is pressed
+@app.callback(
+    Output('interval-component','disabled'),
+    [Input('btn', 'n_clicks'), Input('btn2', 'n_clicks')],
+    prevent_initial_call=True
+)
+def time_enable(n1,n2):
+    ctx = dash.callback_context
+    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    if (button_id == 'btn'):
+        return False
+    elif (button_id == 'btn2'):
+        return True
+
+#this will be triggered only when time intervals are enabled(when record is pressed)
+@app.callback(
+    [Output('graph-container', 'style'), Output('live-update-graph', 'figure')],
+    [Input('interval-component', 'n_intervals')],
+    prevent_initial_call=True
+)
+def live_speech_signal(n):
+    global block
+    fs = 44100
+    block_size = 0.2  # window size in seconds
+    mid_buf_size = int(fs * block_size)
+    fig = go.Figure()
+    x = np.arange(0, 2 * mid_buf_size, 2)
+    data = np.frombuffer(block, np.int16)
+    fig.add_trace(go.Scatter(x=x, y=data))
+
+    fig.update_layout(
+        autosize=False,
+        width=1500,
+        height=600,
+        yaxis=dict(
+            titlefont=dict(size=30),
+            range=(-10000, 10000),
+        ),
+        xaxis=dict(
+            range=(0, mid_buf_size),
+        )
+    )
+    return {'display': 'block'}, fig
+
+
+
+
+
+# Page 3 callbacks
 @app.callback(
     [Output('display-text', 'style'), Output('graphs', 'style'), Output('graph1', 'figure'),
      Output('graph2', 'figure')],
-    [Input('url', 'pathname')]
+    [Input('url', 'pathname')],
 )
 def display_page(pathname):
     if pathname == '/score':
-        # script_path = '/home/sofia/PycharmProjects/dyslexia/main.py'
-        # call(["python3", script_path])
         main()
-        df = pd.read_pickle("score.pkl")
-        rec = df.loc[0, 'recall']
-        pre = df.loc[0, 'precision']
-        f1 = df.loc[0, 'f1']
-        df1 = pd.read_pickle("recall_temporal.pkl")
-        df2 = pd.read_pickle("precision_temporal.pkl")
-        df3 = pd.read_pickle("f1_temporal.pkl")
-        fig, fig1 = App(rec, pre, f1, df1, df2, df3)
+        fig, fig1 = make_figures()
+        return {'display': 'none'}, {'display': 'block'},fig,fig1
 
-        return {'display': 'none'}, {'display': 'block'}, fig, fig1
 
 
 if __name__ == "__main__":
