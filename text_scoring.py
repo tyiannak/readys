@@ -33,16 +33,63 @@ def text_to_text_alignment_and_score(text_ref, text_pred):
     v = Vocabulary()
     a_enc = v.encodeSequence(a)
     b_enc = v.encodeSequence(b)
-
     # Create a scoring and align the sequences using global aligner.
     scoring = SimpleScoring(1, 0)
     aligner = GlobalSequenceAligner(scoring, 0)
     f, score, encodeds = aligner.align(a_enc, b_enc, text_ref.split(),
                                        text_pred.split(), backtrace=True)
 
-    # get the first allignment if exists:
+    # get the first alignment if exists:
+    #print(encodeds[0])
+    #print(encodeds)
     if len(encodeds) > 0:
         alignment = v.decodeSequenceAlignment(encodeds[0])
+        print(alignment)
+        ##fix first and last missing words of asr text
+        list_asr = []
+        list_pred = []
+        for word in text_pred.split():
+            if word != alignment.second.elements[0]:
+                list_asr.append(word)
+                list_pred.append('-')
+            else:
+                alignment.second.elements = list_asr + alignment.second.elements
+                alignment.first.elements = list_pred + alignment.first.elements
+                break
+        list_asr = []
+        list_pred = []
+        for word in reversed(text_pred.split()):
+            if word != alignment.second.elements[-1]:
+                list_asr = [word] + list_asr
+                list_pred.append('-')
+            else:
+                alignment.second.elements = alignment.second.elements + list_asr
+                alignment.first.elements =  alignment.first.elements  + list_pred
+                break
+        #fix first and last missing words of reference text
+        list_asr = []
+        list_pred = []
+        for word in text_ref.split():
+            if word != alignment.first.elements[0]:
+                list_pred.append(word)
+                list_asr.append('-')
+            else:
+                alignment.second.elements = list_asr + alignment.second.elements
+                alignment.first.elements = list_pred + alignment.first.elements
+                break
+        list_asr = []
+        list_pred = []
+        for word in reversed(text_ref.split()):
+            if word != alignment.first.elements[-1]:
+                list_pred = [word] + list_asr
+                list_asr.append('-')
+            else:
+                alignment.second.elements = alignment.second.elements + list_asr
+                alignment.first.elements = alignment.first.elements + list_pred
+                break
+        #print(alignment.second.elements)
+        #print(alignment.first.elements)
+        print(alignment)
         rec = alignment.score * 100 / len(text_ref.split())
         pre = alignment.score * 100 / len(text_pred.split())
     else:
@@ -55,19 +102,34 @@ def text_to_text_alignment_and_score(text_ref, text_pred):
 def adjust_asr_results(asr_results, second):
     adjusted_results = []
     i = 0
+    max_i = len(asr_results)
     for j in range(0, len(second)):
-        if asr_results[i]['word'].lower() == second[j]:
-            adjusted_results.append(asr_results[i]) 
-            i += 1
-        else:
+        if i== (max_i):
             if adjusted_results[j-1]['word'] == '-':
                 adjusted_results.append(adjusted_results[j-1])
             else:
                 k = adjusted_results[j-1]['et']
-                l = asr_results[i]['st']
-                mean = (k+l) / 2
+                mean = k/2
                 adjusted_results.append({"word": second[j], "st": mean,
                                          "et": mean})
+        else:
+            if asr_results[i]['word'].lower() == second[j]:
+                adjusted_results.append(asr_results[i])
+                i += 1
+            else:
+                if j == 0:
+                    l = asr_results[i]['st']
+                    mean = l / 2
+                    adjusted_results.append({"word": second[j], "st": mean,
+                                             "et": mean})
+                elif adjusted_results[j-1]['word'] == '-':
+                    adjusted_results.append(adjusted_results[j-1])
+                else:
+                    k = adjusted_results[j-1]['et']
+                    l = asr_results[i]['st']
+                    mean = (k+l) / 2
+                    adjusted_results.append({"word": second[j], "st": mean,
+                                             "et": mean})
     return adjusted_results
 
 
