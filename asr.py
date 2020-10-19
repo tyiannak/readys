@@ -48,11 +48,11 @@ def audio_to_asr_text(audio_path, google_credentials_file):
         audio = {"content": content}
 
         response = client.long_running_recognize(config,audio).result()
-
+        number_of_words = 0
         for flag, result in enumerate(response.results):
             alternative = result.alternatives[0]
             data += alternative.transcript
-            number_of_words = len(alternative.words)
+            number_of_words = number_of_words + len(alternative.words)
             for w in alternative.words:
                 my_results.append({"word": w.word,
                                    "st": w.start_time.seconds +
