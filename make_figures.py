@@ -4,6 +4,8 @@ import plotly.graph_objects as go
 import numpy as np
 from pyAudioAnalysis import audioSegmentation as aS
 from pyAudioAnalysis import audioBasicIO as aio
+from pyAudioAnalysis.audioTrainTest import file_classification
+from segment_level_classifier import segment_classification
 
 def make_figures():
 
@@ -63,10 +65,10 @@ def make_figures():
         word_speech_long = k[1] - k[0]
         total_speech_long = total_speech_long + word_speech_long
         counter=counter+1
-    print(seg_limits_short)
-    print(silence_durations_short)
-    print(seg_limits_long)
-    print(silence_durations_long)
+    #print(seg_limits_short)
+    #print(silence_durations_short)
+    #print(seg_limits_long)
+    #print(silence_durations_long)
     speech_ratio_long = total_speech_long / dur
     number_of_pauses_long = len(silence_durations_long)
     silence_durations_short = np.array(silence_durations_short)
@@ -92,28 +94,43 @@ def make_figures():
         csv_reader = reader(read_obj)
         Asr=list(csv_reader)
 
+    #classify the whole recording between low,neutral and high
+    input_file = "output.wav"
+    model_name = "segment_classifier"
+    model_type = "svm_rbf"
+    class_id, probability, classes = file_classification(input_file, model_name, model_type)
+
+    if class_id == 0.0:
+        wav_class = "High"
+    elif class_id == 1.0:
+        wav_class = "Neutral"
+    else:
+        wav_class = "Low"
+
+    # statistic segment classification
+    classes, high_percentage, neutral_percentage, low_percentage = segment_classification(input_file,model_name)
+
     #create feature vector for the whole recording
     DF=pd.DataFrame(
         {
-            "average duration" : [float("{:.2f}".format(average_silence_dur_short)),float("{:.2f}".format(average_silence_dur_long))],
+            "average silence duration" : [float("{:.2f}".format(average_silence_dur_short)),float("{:.2f}".format(average_silence_dur_long))],
             "silence_seg_per_minute" : [float("{:.2f}".format(number_of_pauses_short/(dur/60.0))),float("{:.2f}".format(number_of_pauses_long/(dur/60.0)))],
             "std" : [float("{:.2f}".format(std_short)),float("{:.2f}".format(std_long))]
         }
     )
     DF.to_csv('whole_recording_feature_vector.csv',index=False)
     fig = go.Figure(data=[go.Table(
-        columnorder=[1, 2, 3],
-        columnwidth=[80, 200, 200],
-        header=dict(values=[['<b>SCORES</b>'],['<b>Short Windows</b>'],['<b>Long Windows</b>']],
+        columnorder=[1, 2],
+        columnwidth=[80, 400],
+        header=dict(values=[['<b>SCORES</b>']],
                     line_color='darkslategray',
                     fill_color='royalblue',
                     align='center',
                     font=dict(color='white', size=12),
                     height=40
         ),
-        cells=dict(values=[["Recall Score (%)","Precision Score (%)","F1 Score (%)","Number of words","Total Duration (sec)","Word Rate (words/min)","Speech Ratio (sec)","Word Rate in Speech (words/sec)","Silence Average Duration (sec)","Number of Pauses","Standard deviation of silence duration (sec)"],
-                           [float("{:.2f}".format(rec)), float("{:.2f}".format(pre)), float("{:.2f}".format(f1)),words,dur,float("{:.2f}".format(words/(dur/60.0))),float("{:.2f}".format(speech_ratio_short)),float("{:.2f}".format(words/total_speech_short)),float("{:.2f}".format(average_silence_dur_short)),number_of_pauses_short,float("{:.2f}".format(std_short))],
-                           [float("{:.2f}".format(rec)), float("{:.2f}".format(pre)), float("{:.2f}".format(f1)),words,dur,float("{:.2f}".format(words/(dur/60.0))),float("{:.2f}".format(speech_ratio_long)),float("{:.2f}".format(words/total_speech_long)),float("{:.2f}".format(average_silence_dur_long)),number_of_pauses_long,float("{:.2f}".format(std_long))]],
+        cells=dict(values=[["Recall Score (%)","Precision Score (%)","F1 Score (%)","Number of words","Total Duration (sec)","Word Rate (words/min)","Speech Ratio (sec) - Short windows","Speech Ratio (sec) - Long windows","Word Rate in Speech (words/sec) - Short windows","Word Rate in Speech (words/sec) - Long windows","Silence Average Duration (sec) - Short windows","Silence Average Duration (sec) - Long windows","Number of Pauses - Short windows","Number of Pauses - Long windows","Standard deviation of silence duration (sec) - Short windows","Standard deviation of silence duration (sec) - Long windows","Class of whole recorded file","High class (%)","Neutral class (%)","Low class(%)"],
+                           [float("{:.2f}".format(rec)), float("{:.2f}".format(pre)), float("{:.2f}".format(f1)),words,dur,float("{:.2f}".format(words/(dur/60.0))),float("{:.2f}".format(speech_ratio_short)),float("{:.2f}".format(speech_ratio_long)),float("{:.2f}".format(words/total_speech_short)),float("{:.2f}".format(words/total_speech_long)),float("{:.2f}".format(average_silence_dur_short)),float("{:.2f}".format(average_silence_dur_long)),number_of_pauses_short,number_of_pauses_long,float("{:.2f}".format(std_short)),float("{:.2f}".format(std_long)),wav_class,float("{:.2f}".format(high_percentage)),float("{:.2f}".format(neutral_percentage)),float("{:.2f}".format(low_percentage))]],
                    line_color='darkslategray',
                    fill=dict(color=['paleturquoise', 'white']),
                    align=['left', 'center'],
