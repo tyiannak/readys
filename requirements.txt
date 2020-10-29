@@ -1,2 +1,13 @@
+pandas==1.1.2
+plotly==4.10.0
+scipy==1.5.2
+PyAudio==0.2.11
+dash_html_components==1.1.1
+numpy==1.19.2
+six==1.15.0
+dash_core_components==1.12.1
+dash==1.16.2
+dash_bootstrap_components==0.10.7
 protobuf==3.13.0
-google-cloud==0.34.0
+pyAudioAnalysis==0.3.6
+python_Levenshtein==0.12.0
