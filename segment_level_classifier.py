@@ -3,7 +3,7 @@ from pyAudioAnalysis.audioTrainTest import load_model, classifier_wrapper
 from pyAudioAnalysis import MidTermFeatures as aF
 import numpy as np
 
-def segment_classification(input_file, model_name):
+def segment_classification(input_file, model_name,model_type):
     # Load classifier:
 
     classifier, mean, std, classes, mid_window, mid_step, short_window, \
@@ -28,7 +28,7 @@ def segment_classification(input_file, model_name):
                                   round(sampling_rate * short_step))
     classes = []
     #print(mid_features)
-    #take every sample (every mid term window) adn not every feature
+    #take every sample (every mid term window) and not every feature
     mid_features=mid_features.tolist()
     #print(mid_features)
     tlist = list(zip(*mid_features))
@@ -40,7 +40,7 @@ def segment_classification(input_file, model_name):
         print(i)
         feature_vector = (i - mean) / std  # normalization
         print(feature_vector)
-        class_id, probability = classifier_wrapper(classifier, "svm_rbf",
+        class_id, probability = classifier_wrapper(classifier,model_type,
                                                    feature_vector)
         classes.append(class_id)
     num_of_highs = 0
