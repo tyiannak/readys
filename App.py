@@ -8,7 +8,6 @@ import plotly.graph_objects as go
 
 
 import json
-from main import main
 from make_figures import make_figures
 
 import numpy as np
@@ -308,7 +307,6 @@ def live_speech_signal(n):
 )
 def display_page(pathname):
     if pathname == '/score':
-        main()
         fig, fig1 = make_figures()
         return {'display': 'none'}, {'display': 'block'},fig,fig1
 
