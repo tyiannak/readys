@@ -16,12 +16,23 @@ import struct
 
 
 from scipy.io import wavfile
+
+from os import listdir
+
+
+
+
+app = dash.Dash(__name__, suppress_callback_exceptions=True,
+                external_stylesheets=[dbc.themes.BOOTSTRAP],
+                )
 global mid_buf
 global RECORD
 global block
 
-
-
+filenames = [f[:-4] for f in listdir("texts/")]
+filenames2 = [f for f in listdir("texts/")]
+def generate_text_button(k,text_name):
+    return dbc.Col(html.A(html.Button(text_name, id=text_name, n_clicks=0),href = '/page-' + str(k)))
 
 
 def record():
@@ -54,10 +65,6 @@ def record():
 
 
 
-app = dash.Dash(__name__, suppress_callback_exceptions=True,
-                external_stylesheets=[dbc.themes.BOOTSTRAP],
-                )
-
 url_bar_and_content_div = html.Div([
     dcc.Location(id='url', refresh=False),
     html.Div(id='page-content')
@@ -67,11 +74,9 @@ layout_index = html.Div(style={'text-align': 'center'}, children=[
     dbc.Row(dbc.Col(html.H1("Select a text for reading"))),
     dbc.Row(
         [
-            dbc.Col(html.A(html.Button('Μια φορά', id='text1', n_clicks=0), href='/page-1')),
-            dbc.Col(html.A(html.Button('Ένα όνειρο', id='text2', n_clicks=0), href='/page-2')),
-            dbc.Col(html.A(html.Button('Γελαστή οικογένεια', id='text3', n_clicks=0), href='/page-3')),
-            dbc.Col(html.A(html.Button('Καλοκαιρινή εργασία', id='text4', n_clicks=0), href='/page-4')),
-            dbc.Col(html.A(html.Button('Είμαι καλά', id='text5', n_clicks=0), href='/page-5'))
+            #html.Div(children=(generate_text_button(k,i) for k,i in enumerate(filenames)))
+            generate_text_button(k,i) for k,i in enumerate(filenames)
+            #dbc.Col(children=(generate_text_button(k,i) for k,i in enumerate(filenames)),style={"margin-left": "15px"})
         ]
     ),
 ])
@@ -140,20 +145,12 @@ app.validation_layout = html.Div([
 @app.callback(Output('page-content', 'children'),
               [Input('url', 'pathname')])
 def display_page(pathname):
-    if pathname == "/page-1":
-        return layout_page_1
-    elif pathname == "/page-2":
-        return layout_page_1
-    elif pathname == "/page-3":
-        return layout_page_1
-    elif pathname == "/page-4":
-        return layout_page_1
-    elif pathname == "/page-5":
-        return layout_page_1
+    if pathname == "/":
+        return layout_index
     elif pathname == "/score":
         return layout_page_2
     else:
-        return layout_index
+        return layout_page_1
 
 
 # Page 1 callbacks
@@ -163,66 +160,19 @@ def display_page(pathname):
 )
 def text(pathname):
     text_markdown = "\t"
-    if pathname == "/page-1":
-        with open('mia_fora.txt') as this_file:
-            for a in this_file.read():
-                if "\n" in a:
-                    text_markdown += "\n \t"
-                else:
-                    text_markdown += a
-        with open('config.json', 'r') as file:
-            json_data = json.load(file)
-            json_data['reference_text'] = "mia_fora.txt"
-        with open('config.json', 'w') as file:
-            json.dump(json_data, file)
-    elif pathname == "/page-2":
-        with open('ena_oneiro.txt') as this_file:
-            for a in this_file.read():
-                if "\n" in a:
-                    text_markdown += "\n \t"
-                else:
-                    text_markdown += a
-        with open('config.json', 'r') as file:
-            json_data = json.load(file)
-            json_data['reference_text'] = "ena_oneiro.txt"
-        with open('config.json', 'w') as file:
-            json.dump(json_data, file)
-    elif pathname == "/page-3":
-        with open('gelasti_oikogeneia.txt') as this_file:
-            for a in this_file.read():
-                if "\n" in a:
-                    text_markdown += "\n \t"
-                else:
-                    text_markdown += a
-        with open('config.json', 'r') as file:
-            json_data = json.load(file)
-            json_data['reference_text'] = "gelasti_oikogeneia.txt"
-        with open('config.json', 'w') as file:
-            json.dump(json_data, file)
-    elif pathname == "/page-4":
-        with open('kalokairini_ergasia.txt') as this_file:
-            for a in this_file.read():
-                if "\n" in a:
-                    text_markdown += "\n \t"
-                else:
-                    text_markdown += a
-        with open('config.json', 'r') as file:
-            json_data = json.load(file)
-            json_data['reference_text'] = "kalokairini_ergasia.txt"
-        with open('config.json', 'w') as file:
-            json.dump(json_data, file)
-    elif pathname == "/page-5":
-        with open('eimai_kala.txt') as this_file:
-            for a in this_file.read():
-                if "\n" in a:
-                    text_markdown += "\n \t"
-                else:
-                    text_markdown += a
-        with open('config.json', 'r') as file:
-            json_data = json.load(file)
-            json_data['reference_text'] = "eimai_kala.txt"
-        with open('config.json', 'w') as file:
-            json.dump(json_data, file)
+    for i in range(len(filenames2)):
+        if pathname == ("/page-" + str(i)):
+            with open("texts/"+ filenames2[i]) as this_file:
+                for a in this_file.read():
+                    if "\n" in a:
+                        text_markdown += "\n \t"
+                    else:
+                        text_markdown += a
+            with open('config.json', 'r') as file:
+                json_data = json.load(file)
+                json_data['reference_text'] = "texts/" + filenames2[i]
+            with open('config.json', 'w') as file:
+                json.dump(json_data, file)
     return text_markdown
 
 #Page 2 callbacks

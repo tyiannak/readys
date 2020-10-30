@@ -41,8 +41,9 @@ def text_to_text_alignment_and_score(text_ref, text_pred):
 
     # get the first alignment if exists:
     #print(encodeds[0])
-    #print(encodeds)
-    if len(encodeds) > 0:
+    print(encodeds)
+
+    if len(encodeds[0]) > 0:
         alignment = v.decodeSequenceAlignment(encodeds[0])
         print(alignment)
         ##fix first and last missing words of asr text
@@ -94,7 +95,7 @@ def text_to_text_alignment_and_score(text_ref, text_pred):
         pre = alignment.score * 100 / len(text_pred.split())
     else:
         alignment = []
-        rec, pre = -1, -1
+        rec, pre = 0, 0
 
     return alignment, rec, pre
 

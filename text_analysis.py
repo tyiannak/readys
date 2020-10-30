@@ -29,13 +29,16 @@ def text_based_feature_extraction(input_file,google_credentials,reference_text=N
         feature_names = ["Recall score (%)","Precision score(%)","F1 score (%)"]
         features = [rec,pre,f1]
         #temporal score calculation
-        adjusted_results = text_scoring.adjust_asr_results(asr_results,
-                                                           alignment.second.elements)
-        length = 0.5
-        step = 0.1
-        recall_list, precision_list, f1_list, Ref, Asr = text_scoring.windows(alignment.first.elements,
-                                                                              alignment.second.elements,
-                                                                              adjusted_results, length, step)
+        if alignment != []:
+            adjusted_results = text_scoring.adjust_asr_results(asr_results,
+                                                               alignment.second.elements)
+            length = 0.5
+            step = 0.1
+            recall_list, precision_list, f1_list, Ref, Asr = text_scoring.windows(alignment.first.elements,
+                                                                                  alignment.second.elements,
+                                                                                  adjusted_results, length, step)
+        else:
+            recall_list, precision_list, f1_list, Ref, Asr =[],[],[],[],[]
         metadata["temporal_recall"] = recall_list
         metadata["temporal_precision"] = precision_list
         metadata["temporal_f1"] = f1_list
