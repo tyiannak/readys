@@ -100,7 +100,7 @@ def text_to_text_alignment_and_score(text_ref, text_pred):
     return alignment, rec, pre
 
 
-def adjust_asr_results(asr_results, second):
+def adjust_asr_results(asr_results, second,dur):
     adjusted_results = []
     i = 0
     max_i = len(asr_results)
@@ -110,7 +110,7 @@ def adjust_asr_results(asr_results, second):
                 adjusted_results.append(adjusted_results[j-1])
             else:
                 k = adjusted_results[j-1]['et']
-                mean = k/2
+                mean = (k+dur)/2
                 adjusted_results.append({"word": second[j], "st": mean,
                                          "et": mean})
         else:
@@ -158,17 +158,20 @@ def calculate_score_after_alignment(A, B):
     return rec, pre
 
 
-def windows(first, second, adjusted_results, length, step):
+def windows(first, second, adjusted_results, length, step,dur):
     if step == 0:
         raise ValueError("Parameter 'm' can't be 0")
     i = length  #center of window
     k = len(second)-1
+    #print(k)
     recall_list=[]
     precision_list=[]
     f1_list=[]
     ref_text = []
     asr_text = []
-    while i + length < adjusted_results[k]['et']:
+    #print(adjusted_results[k]['et'])
+    while (i + length) < dur:
+        #print(i+length)
         list_a = []
         list_b = []
         for j in range(0, len(second)):
