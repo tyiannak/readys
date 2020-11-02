@@ -26,8 +26,10 @@ app = dash.Dash(__name__, suppress_callback_exceptions=True,
                 external_stylesheets=[dbc.themes.BOOTSTRAP],
                 )
 global mid_buf
+mid_buf = []
 global RECORD
 global block
+block = bytes()
 
 filenames = [f[:-4] for f in listdir("texts/")]
 filenames2 = [f for f in listdir("texts/")]
@@ -103,7 +105,7 @@ layout_page_1 = html.Div([
     ),
     html.Div(style={'text-align': 'center'}, children=[
         html.Button('Record', id='btn', n_clicks=0),
-        dcc.Link(html.Button('Stop', id='btn2', n_clicks=0), href='/score'),
+        dcc.Link(html.Button('Stop', id='btn2', n_clicks=0,disabled=True), href='/score'),
         html.Div(id='output', children='Hit the button to update'),
         # dcc.Link('Show score',href='/score'),
     ]),
@@ -177,6 +179,14 @@ def text(pathname):
 
 #Page 2 callbacks
 #start recording when record is pressed and stop it when stop is pressed
+@app.callback(
+    Output('btn2','disabled'),
+    [Input('btn','n_clicks')],
+    prevent_initial_call=True
+)
+def disable(n):
+    return False
+
 @app.callback(
     Output('output', 'children'),
     [Input('btn', 'n_clicks'), Input('btn2', 'n_clicks')],

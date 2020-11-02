@@ -38,7 +38,20 @@ def text_based_feature_extraction(input_file,google_credentials,reference_text=N
                                                                                   alignment.second.elements,
                                                                                   adjusted_results, length, step)
         else:
-            recall_list, precision_list, f1_list, Ref, Asr =[],[],[],[],[]
+            length = 0.5
+            step = 0.1
+            i=length
+            recall_list = []
+            precision_list = []
+            f1_list = []
+            total_number_of_windows = 0
+            while i + length < dur:
+                total_number_of_windows += 1
+                recall_list.append({"x": i, "y": 0})
+                precision_list.append({"x": i, "y": 0})
+                f1_list.append({"x": i, "y": 0})
+                i += step
+            Ref, Asr =["-"] * total_number_of_windows,["-"] *total_number_of_windows
         metadata["temporal_recall"] = recall_list
         metadata["temporal_precision"] = precision_list
         metadata["temporal_f1"] = f1_list
