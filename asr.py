@@ -25,7 +25,7 @@ def audio_to_asr_text(audio_path, google_credentials_file):
     my_results = []
     data = ""
 
-
+    number_of_words = 0
     while cur_pos < dur:
 
         encoding = enums.RecognitionConfig.AudioEncoding.LINEAR16
