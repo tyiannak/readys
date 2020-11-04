@@ -1,6 +1,5 @@
 import asr
-import text_scoring
-
+import text_scoring as ts
 
 
 def load_reference_data(path):
@@ -14,16 +13,16 @@ def text_based_feature_extraction(input_file,
 
     feature_names =[]
     features = []
-    asr_results, data, number_of_words, dur = asr.audio_to_asr_text(input_file,
-                                                                    google_credentials)
-    word_rate = float("{:.2f}".format(number_of_words / (dur / 60.0)))
-    metadata = {"Asr timestamps": asr_results,
-                "Number of words": number_of_words,
+    asr_results, data, n_words, dur = asr.audio_to_asr_text(input_file,
+                                                            google_credentials)
+    word_rate = float("{:.2f}".format(n_words / (dur / 60.0)))
+    metadata = {"asr timestamps": asr_results,
+                "Number of words": n_words,
                 "Total duration (sec)" : dur}
     if reference_text:
         ref_text = load_reference_data(reference_text)
-        alignment, rec, pre = text_scoring.text_to_text_alignment_and_score(ref_text,
-                                                                            data)
+        alignment, rec, pre = ts.text_to_text_alignment_and_score(ref_text,
+                                                                  data)
         if rec == 0.0 or pre == 0.0:
             f1 = 0.0
         else:
@@ -38,33 +37,36 @@ def text_based_feature_extraction(input_file,
 
         # temporal score calculation
         if alignment != []:
-            adjusted_results = text_scoring.adjust_asr_results(asr_results,
-                                                               alignment.second.elements,dur)
+            adjusted_results = ts.adjust_asr_results(asr_results,
+                                                     alignment.second.elements,
+                                                     dur)
             length = 0.5
             step = 0.1
-            recall_list, precision_list, f1_list, Ref, Asr = text_scoring.windows(alignment.first.elements,
-                                                                                  alignment.second.elements,
-                                                                                  adjusted_results, length, step,dur)
+            recalls, precisions, f1s, ref, asr_r = ts.windows(alignment.first.elements,
+                                                              alignment.second.elements,
+                                                              adjusted_results,
+                                                              length,
+                                                              step,dur)
         else:
             length = 0.5
             step = 0.1
             i=length
-            recall_list = []
-            precision_list = []
-            f1_list = []
+            recalls = []
+            precisions = []
+            f1s = []
             total_number_of_windows = 0
             while (i + length )< dur:
                 total_number_of_windows += 1
-                recall_list.append({"x": i, "y": 0})
-                precision_list.append({"x": i, "y": 0})
-                f1_list.append({"x": i, "y": 0})
+                recalls.append({"x": i, "y": 0})
+                precisions.append({"x": i, "y": 0})
+                f1s.append({"x": i, "y": 0})
                 i += step
-            Ref, Asr =["-"] * total_number_of_windows,["-"] *total_number_of_windows
-        metadata["temporal_recall"] = recall_list
-        metadata["temporal_precision"] = precision_list
-        metadata["temporal_f1"] = f1_list
-        metadata["temporal_ref"] = Ref
-        metadata["temporal_asr"] = Asr
+            ref, asr_r = ["-"] * total_number_of_windows,["-"] * total_number_of_windows
+        metadata["temporal_recall"] = recalls
+        metadata["temporal_precision"] = precisions
+        metadata["temporal_f1"] = f1s
+        metadata["temporal_ref"] = ref
+        metadata["temporal_asr"] = asr_r
 
     feature_names.append("Word rate (words/min)")
     features.append(word_rate)
