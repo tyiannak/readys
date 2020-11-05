@@ -71,7 +71,7 @@ def text_based_feature_extraction(input_file,
     feature_names.append("Word rate (words/min)")
     features.append(word_rate)
 
-    return features,feature_names,metadata
+    return features, feature_names, metadata
 
 
     
