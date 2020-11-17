@@ -10,6 +10,16 @@ def load_reference_data(path):
 def text_based_feature_extraction(input_file,
                                   google_credentials,
                                   reference_text=None):
+    """
+    Extract text features from ASR results of a speech audio file
+    :param input_file: path to the audio file
+    :param google_credentials: path to the ASR google credentials file
+    :param reference_text:  path to the reference text
+    :return:
+     - features: list of text features extraced
+     - feature_names: list of respective feature names
+     - metadata: list of metadata
+    """
 
     feature_names =[]
     features = []
@@ -61,7 +71,8 @@ def text_based_feature_extraction(input_file,
                 precisions.append({"x": i, "y": 0})
                 f1s.append({"x": i, "y": 0})
                 i += step
-            ref, asr_r = ["-"] * total_number_of_windows,["-"] * total_number_of_windows
+            ref, asr_r = ["-"] * total_number_of_windows,\
+                         ["-"] * total_number_of_windows
         metadata["temporal_recall"] = recalls
         metadata["temporal_precision"] = precisions
         metadata["temporal_f1"] = f1s
