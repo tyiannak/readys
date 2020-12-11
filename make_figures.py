@@ -1,8 +1,8 @@
 import plotly.graph_objects as go
 import numpy as np
-from text_analysis import text_based_feature_extraction as tbfe
+from text_analysis import get_asr_features as tbfe
+from text_analysis import load_text_embedding_model as load_tem
 import json
-
 from audio_analysis import audio_based_feature_extraction as abfe
 
 
@@ -11,14 +11,18 @@ def load_conf_file(path):
         conf = json.load(f)
     return conf
 
+
 def make_figures():
     conf = load_conf_file('config.json')
     input_file=conf['audiofile']
     google_credentials=conf['google_credentials']
     reference_text = conf['reference_text']
 
+    embeddings_model = load_tem()
+
     #text feature extraction
     text_features, text_feature_names, text_metadata = tbfe(input_file,
+                                                            embeddings_model,
                                                             google_credentials,
                                                             reference_text)
     # audio feature extraction

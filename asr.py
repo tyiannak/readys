@@ -17,8 +17,8 @@ def audio_to_asr_text(audio_path, google_credentials_file):
     """
 
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials_file
-    language_code = "el-GR"
-#    language_code = "en-US"
+#    language_code = "el-GR"
+    language_code = "en-US"
     fs, dur = audio_analysis .get_wav_properties(audio_path)
 
     cur_pos = 0
@@ -64,4 +64,4 @@ def audio_to_asr_text(audio_path, google_credentials_file):
                                    })
 
         cur_pos += MAX_FILE_DURATION
-    return my_results, data,number_of_words,dur
+    return my_results, data, number_of_words, dur

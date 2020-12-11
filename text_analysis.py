@@ -1,5 +1,7 @@
 import asr
 import text_scoring as ts
+import numpy as np
+import fasttext
 
 
 def load_reference_data(path):
@@ -7,45 +9,83 @@ def load_reference_data(path):
     return text
 
 
-def text_based_feature_extraction(input_file,
-                                  google_credentials,
-                                  reference_text=None):
+def load_text_embedding_model(model_name="cc.en.300.bin"):
+    # download https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.en.300.bin.gz
+    model = fasttext.load_model(model_name)
+    return model
+
+
+def text_features(model, text):
+    features = []
+    features_names = []
+
+    words = text.split(' ')
+    features_t = []
+    for w in words:
+        features_t.append(model[w])
+    features_t = np.array(features_t)
+    features_m = np.mean(features_t, axis=0)
+
+    for f in range(len(features_m)):
+        features.append(features_m[f])
+        features_names.append(f'fast_text_model_emeddings_{f}')
+
+    # TODO: add pretrained model posteriors, e.g. P(y=negative|x) etc
+
+    return features, features_names
+
+
+def get_asr_features(input_file, embedding_model,
+                     google_credentials, reference_text=None):
     """
     Extract text features from ASR results of a speech audio file
     :param input_file: path to the audio file
     :param google_credentials: path to the ASR google credentials file
     :param reference_text:  path to the reference text
     :return:
-     - features: list of text features extraced
+     - features: list of text features extracted
+     - embedding_model: fasttext model varbiable
+       (need to initiate with load_text_embeding_model)
      - feature_names: list of respective feature names
      - metadata: list of metadata
     """
 
-    feature_names =[]
+    feature_names = []
     features = []
+    # Step 1: speech recognition using google speech API:
     asr_results, data, n_words, dur = asr.audio_to_asr_text(input_file,
                                                             google_credentials)
+    print(asr_results)
+    print(data)
+    # Step 2: compute basic text features and metadata:
     word_rate = float("{:.2f}".format(n_words / (dur / 60.0)))
     metadata = {"asr timestamps": asr_results,
                 "Number of words": n_words,
-                "Total duration (sec)" : dur}
+                "Total duration (sec)": dur}
+
+    # Step 3: compute reference text - related features
+    # (if reference text is available)
     if reference_text:
+        # get the reference text and align with the predicted text
+        # (word to word alignment):
         ref_text = load_reference_data(reference_text)
         alignment, rec, pre = ts.text_to_text_alignment_and_score(ref_text,
                                                                   data)
-        if rec == 0.0 or pre == 0.0:
-            f1 = 0.0
-        else:
-            f1 = 2 * rec * pre / (rec + pre)
+        # get the f1 (recall / precision are computed between the
+        # reference_text and the predicted text
+        f1 = 2 * rec * pre / (rec + pre + np.finfo(np.float32).eps)
+
         rec = float("{:.2f}".format(rec))
         pre = float("{:.2f}".format(pre))
         f1 = float("{:.2f}".format(f1))
+
         feature_names = ["Recall score (%)",
                          "Precision score(%)",
                          "F1 score (%)"]
         features = [rec, pre, f1]
 
-        # temporal score calculation
+        # temporal score calculation:
+        # (this info is used ONLY for plotting, so it is returned as metadata)
         if alignment != []:
             adjusted_results = ts.adjust_asr_results(asr_results,
                                                      alignment.second.elements,
@@ -79,14 +119,21 @@ def text_based_feature_extraction(input_file,
         metadata["temporal_ref"] = ref
         metadata["temporal_asr"] = asr_r
 
+
     feature_names.append("Word rate (words/min)")
     features.append(word_rate)
 
-    return features, feature_names, metadata
+    # Pure-text-based features:
+    features_text, features_names_text = text_features(embedding_model,
+                                                       data)
 
+    features += features_text
+    feature_names += features_names_text
+
+    return features, feature_names, metadata
 
     
 if __name__ == "__main__":
-    text_based_feature_extraction()
+    get_asr_features()
 
 
