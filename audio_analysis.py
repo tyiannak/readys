@@ -21,7 +21,7 @@ def get_wav_properties(wav_path):
 def audio_based_feature_extraction(input_file):
 
     # A. silence features
-    fs,dur = get_wav_properties(input_file)
+    fs, dur = get_wav_properties(input_file)
     fs, x = aio.read_audio_file(input_file)
 
     # get the silence estimates using pyAudioAnalysis semisupervised approach
@@ -83,13 +83,15 @@ def audio_based_feature_extraction(input_file):
     std_long = float("{:.2f}".format(std_long))
     average_silence_dur_long = np.mean(silence_durations_long)
     average_silence_dur_long = float("{:.2f}".format(average_silence_dur_long))
-    silence_seg_per_minute_long = float("{:.2f}".format(number_of_pauses_long / (dur / 60.0)))
+    silence_seg_per_minute_long = float("{:.2f}".format(number_of_pauses_long /
+                                                        (dur / 60.0)))
     word_rate_in_speech_long = len(seg_limits_long) / total_speech_long
     word_rate_in_speech_long = float("{:.2f}".format(word_rate_in_speech_long))
 
-    #classification features
+    # B. segment model-based features
     # Load classifier:
 
+    # TODO: load all models stored in a particular folder and apply
     classifier, mean, std, classes, mid_window, mid_step, short_window, \
     short_step, compute_beat = load_model("segment_classifier")
 
@@ -112,17 +114,18 @@ def audio_based_feature_extraction(input_file):
                                   round(sampling_rate * short_step))
     classes = []
 
-    # take every sample (every mid term window) and not every feature
+    # take every example (every mid term window)
     mid_features = mid_features.tolist()
     tlist = list(zip(*mid_features))
     tlist = np.array(tlist)
     for i in tlist:
-        print(i)
         feature_vector = (i - mean) / std  # normalization
-        print(feature_vector)
         class_id, probability = classifier_wrapper(classifier, "svm_rbf",
                                                    feature_vector)
         classes.append(class_id)
+
+    # TODO: This should be generalized as an aggregation of posteriors of the
+    # segment classifiers
     num_of_highs = 0
     num_of_neutrals = 0
     num_of_lows = 0
@@ -137,7 +140,7 @@ def audio_based_feature_extraction(input_file):
     neutral_percentage = float("{:.2f}".format(num_of_neutrals * 100 / len(classes)))
     low_percentage = float("{:.2f}".format(num_of_lows * 100 / len(classes)))
 
-    #list of features and feature names
+    # list of features and feature names
     feature_names = ["Average silence duration short (sec)",
                      "Average silence duration long (sec)",
                      "Silence segments per minute short (segments/min)",
