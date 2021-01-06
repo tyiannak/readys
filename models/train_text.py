@@ -6,7 +6,7 @@ import re
 import pandas as pd
 import numpy as np
 import argparse
-
+import fasttext
 
 def text_preprocess(document):
     """
@@ -37,11 +37,15 @@ def extract_fast_text_features(transcriptions, fasttext_pretrained_model):
     """
 
     # load first 500000 words from pretrained model
-    pretrained_model = \
-        KeyedVectors.load_word2vec_format(fasttext_pretrained_model,
-                                          limit=500)
+#    pretrained_model = \
+#        KeyedVectors.load_word2vec_format(fasttext_pretrained_model,
+#                                          limit=500)
+
+    pretrained_model = fasttext.load_model(fasttext_pretrained_model)
+
     # for every sample-sentence
     total_features = []
+
     for i, k in enumerate(transcriptions):
         print(i)
         features = []
@@ -53,11 +57,12 @@ def extract_fast_text_features(transcriptions, fasttext_pretrained_model):
             try:
                 # find the most similar words in the dictionary,
                 # if there is not any: continue with next word
-                result = pretrained_model.wv.most_similar(word)
+#                result = pretrained_model.wv.most_similar(word)
                 # take the first one of them (the one that matches the most)
-                most_similar_key, similarity = result[0]  # get the first match
+#                most_similar_key, similarity = result[0]  # get the first match
                 # take the vector of it
-                feature = pretrained_model[most_similar_key]
+#                feature = pretrained_model[most_similar_key]
+                feature = pretrained_model[word]
                 # collect vectors of all words in one sample
                 features.append(feature)
             except KeyError:
@@ -93,7 +98,8 @@ def train_svm(feature_matrix,labels):
     :param labels: list of labels of examples
     :return:
     """
-    parameters = {'kernel': ('linear', 'poly', 'sigmoid', 'rbf'),
+    print(feature_matrix.shape)
+    parameters = {'kernel': ('poly', 'rbf'),
                   'C': [0.001, 0.01, 0.5, 1.0, 5.0, 10.0, 20.0]}
     svc = svm.SVC(gamma="scale")
     clf_svc = GridSearchCV(svc, parameters, cv=5)
@@ -119,13 +125,16 @@ def fast_text_and_svm(myData, fasttext_pretrained_model):
                              of the model
     """
     # load first 500000 words from pretrained model
-    pretrained_model = \
-        KeyedVectors.load_word2vec_format(fasttext_pretrained_model,
-                                          limit=500000)
+#    pretrained_model = \
+#        KeyedVectors.load_word2vec_format(fasttext_pretrained_model,
+#                                          limit=500000)
+
     #load our samples
     df = pd.read_csv(myData)
     transcriptions = df['transcriptions'].tolist()
     labels = df['labels']
+    transcriptions = transcriptions[::10]
+    labels = labels[::10]
     a = np.unique(labels)
     df = pd.DataFrame(columns=['classes'])
     df['classes'] = a
