@@ -9,6 +9,15 @@ import fasttext
 from sklearn.metrics import f1_score, make_scorer
 
 
+def load_text_embeddings(text_embedding_path):
+    """
+    Loads the fasttext text representation model
+    :param text_embedding_path: path to the fasttext .bin file
+    :return: fasttext model
+    """
+    return fasttext.load_model(text_embedding_path)
+
+
 def text_preprocess(document):
     """
     Basic text preprocessing
@@ -43,20 +52,18 @@ def normalization(features):
     return normalized_features, mean, std
 
 
-def extract_fast_text_features(transcriptions, fasttext_pretrained_model):
+def extract_fast_text_features(transcriptions, text_emb_model):
     """
     For every sentence (example) extract 300 dimensional feature vector
     based on fasttext pretrained model
 
     :param transcriptions: list of samples-sentences ,
-    :param fasttext_pretrained_model : path of fasttext pretrained
+    :param text_emb_model : path of fasttext pretrained
     model (.vec file)
     :return: fasttext_pretrained_model: numpy array (n x 300) -->
                                         n samples(sentences) x 300
                                         dimensions(features) normalized
     """
-
-    pretrained_model = fasttext.load_model(fasttext_pretrained_model)
 
     # for every sample-sentence
     total_features = []
@@ -68,8 +75,8 @@ def extract_fast_text_features(transcriptions, fasttext_pretrained_model):
         # preprocessing
         pr = text_preprocess(k)
         for word in pr.split(): # for every word in the sentence
-            feature = pretrained_model[word]
-            #  feature = pretrained_model.get_word_vector(word)
+            feature = text_emb_model[word]
+            #  feature = text_emb_model.get_word_vector(word)
             features.append(feature)
 
         # average the feature vectors for all the words in a sentence-sample
@@ -109,13 +116,13 @@ def train_svm(feature_matrix, labels, f_mean, f_std):
     return model_name
 
 
-def fast_text_and_svm(myData, fasttext_pretrained_model):
+def fast_text_and_svm(myData, text_emb_model):
     """
 
     :param myData: csv file with one column transcriptions (text samples)
                    and one column labels
-    :param fasttext_pretrained_model: path of fast text pretrained model
-                                      (.vec file)
+    :param text_emb_model: text embeddings model (e.g. loaded using
+                           load_text_embeddings() function
     :return model_name: name of the svm model that saved ,
     :return class_file_name: name of csv file that contains the classes
                              of the model
@@ -138,8 +145,7 @@ def fast_text_and_svm(myData, fasttext_pretrained_model):
     labels = labels.tolist()
 
     # extract features based on pretrained fasttext model
-    total_features = extract_fast_text_features(transcriptions,
-                                                fasttext_pretrained_model)
+    total_features = extract_fast_text_features(transcriptions, text_emb_model)
     # normalization
     feature_matrix , mean , std = normalization(total_features)
 
@@ -161,4 +167,6 @@ if __name__ == '__main__':
                         help="the path of fasttext pretrained model "
                              "(.bin file)")
     args = parser.parse_args()
-    fast_text_and_svm(args.annotation, args.pretrained)
+
+    text_embeddings = load_text_embeddings(args.pretrained)
+    fast_text_and_svm(args.annotation, text_embeddings)

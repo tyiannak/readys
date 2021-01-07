@@ -1,4 +1,5 @@
 from train_text import extract_fast_text_features
+from train_text import load_text_embeddings
 import argparse
 import pickle as cPickle
 import re
@@ -43,9 +44,7 @@ def predict_text_labels(data, fasttext_pretrained_model, svm_model,
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input",
-                        help="the path of our data samples "
-                             "(csv with column transcriptions "
-                             "and one column labels)")
+                        help="a string containing sentence(s)")
     parser.add_argument("-p", "--pretrained",
                         help="the path of fasttext pretrained model "
                              "(.bin file)")
@@ -55,8 +54,11 @@ if __name__ == '__main__':
                         help="the path of csv file that contains the"
                               " name of classes of this specific model")
     args = parser.parse_args()
-    predict_text_labels(args.input, args.pretrained,
-                        args.classifier, args.names)
+
+    text_embed_model = load_text_embeddings(args.pretrained)
+    results = predict_text_labels(args.input, text_embed_model,
+                                  args.classifier, args.names)
+    print(results)
 
 
 
