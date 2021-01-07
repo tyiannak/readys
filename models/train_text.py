@@ -56,11 +56,6 @@ def extract_fast_text_features(transcriptions, fasttext_pretrained_model):
                                         dimensions(features) normalized
     """
 
-    # load first 500000 words from pretrained model
-#    pretrained_model = \
-#        KeyedVectors.load_word2vec_format(fasttext_pretrained_model,
-#                                          limit=500000)
-
     pretrained_model = fasttext.load_model(fasttext_pretrained_model)
 
     # for every sample-sentence
@@ -125,17 +120,16 @@ def fast_text_and_svm(myData, fasttext_pretrained_model):
     :return class_file_name: name of csv file that contains the classes
                              of the model
     """
-    # load first 500000 words from pretrained model
-#    pretrained_model = \
-#        KeyedVectors.load_word2vec_format(fasttext_pretrained_model,
-#                                          limit=500000)
 
-    #load our samples
+    # load our samples
     df = pd.read_csv(myData)
     transcriptions = df['transcriptions'].tolist()
     labels = df['labels']
-    transcriptions = transcriptions[::10]
-    labels = labels[::10]
+
+    # TODO: set that to 1
+    hop_samples = 5
+    transcriptions = transcriptions[::hop_samples]
+    labels = labels[::hop_samples]
     a = np.unique(labels)
     df = pd.DataFrame(columns=['classes'])
     df['classes'] = a
@@ -143,13 +137,13 @@ def fast_text_and_svm(myData, fasttext_pretrained_model):
     df.to_csv(class_file_name, index=False)
     labels = labels.tolist()
 
-    #extract features based on pretrained fasttext model
+    # extract features based on pretrained fasttext model
     total_features = extract_fast_text_features(transcriptions,
                                                 fasttext_pretrained_model)
-    #normalization
+    # normalization
     feature_matrix , mean , std = normalization(total_features)
 
-    #train svm classifier
+    # train svm classifier
     model_name = train_svm(feature_matrix, labels, mean, std)
     print("Model saved with name:", model_name)
     print("Classes of this model saved with name:", class_file_name)
