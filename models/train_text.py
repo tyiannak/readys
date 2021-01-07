@@ -23,6 +23,23 @@ def text_preprocess(document):
     document = document.lower()
     return document
 
+def normalization(features):
+    '''
+    Normalize features (dimensions)
+    :param features: unnormalized features (num_of_samples x 300)
+    :return: normalized_features , mean, std
+    '''
+    X = np.asmatrix(features)
+    mean = np.mean(X, axis=0) + 1e-14
+    std = np.std(X, axis=0) + 1e-14
+    normalized_features = np.array([])
+    for i, f in enumerate(X):
+        ft = (f - mean) / std
+        if i == 0:
+            normalized_features = ft
+        else:
+            normalized_features = np.vstack((normalized_features, ft))
+    return normalized_features , mean , std
 
 def extract_fast_text_features(transcriptions, fasttext_pretrained_model):
     """
@@ -40,7 +57,7 @@ def extract_fast_text_features(transcriptions, fasttext_pretrained_model):
     # load first 500000 words from pretrained model
 #    pretrained_model = \
 #        KeyedVectors.load_word2vec_format(fasttext_pretrained_model,
-#                                          limit=500)
+#                                          limit=500000)
 
     pretrained_model = fasttext.load_model(fasttext_pretrained_model)
 
@@ -68,7 +85,9 @@ def extract_fast_text_features(transcriptions, fasttext_pretrained_model):
                 features.append(feature)
             except KeyError:
                 continue
-
+            # TODO: Replace the above try/except condition with:
+            #  feature = pretrained_model.get_word_vector(word)
+            #  features.append(feature)
         # average the feature vectors for all the words in a sentence-sample
         X = np.asmatrix(features)
         mean = np.mean(X, axis=0) + 1e-14
@@ -77,19 +96,8 @@ def extract_fast_text_features(transcriptions, fasttext_pretrained_model):
             total_features = mean
         else:
             total_features = np.vstack((total_features, mean))
+    return total_features
 
-    # normalization of all features
-    X = np.asmatrix(total_features)
-    mean = np.mean(X, axis=0) + 1e-14
-    std = np.std(X, axis=0) + 1e-14
-    feature_matrix = np.array([])
-    for i, f in enumerate(X):
-        ft = (f - mean) / std
-        if i == 0:
-            feature_matrix = ft
-        else:
-            feature_matrix = np.vstack((feature_matrix, ft))
-    return feature_matrix, mean, std
 
 
 def train_svm(feature_matrix, labels, f_mean, f_std):
@@ -147,11 +155,12 @@ def fast_text_and_svm(myData, fasttext_pretrained_model):
     labels = labels.tolist()
 
     #extract features based on pretrained fasttext model
-    feature_matrix, f_m, f_s = extract_fast_text_features(transcriptions,
-                                                          fasttext_pretrained_model)
+    total_features = extract_fast_text_features(transcriptions,fasttext_pretrained_model)
+    #normalization
+    feature_matrix , mean , std = normalization(total_features)
 
     #train svm classifier
-    model_name = train_svm(feature_matrix, labels, f_m, f_s)
+    model_name = train_svm(feature_matrix, labels, mean, std)
     print("Model saved with name:", model_name)
     print("Classes of this model saved with name:", class_file_name)
 
@@ -166,6 +175,6 @@ if __name__ == '__main__':
                              "and one column labels)")
     parser.add_argument("-p", "--pretrained",
                         help="the path of fasttext pretrained model "
-                             "(.vec file)")
+                             "(.bin file)")
     args = parser.parse_args()
     fast_text_and_svm(args.annotation, args.pretrained)
