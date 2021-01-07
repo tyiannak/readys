@@ -90,13 +90,14 @@ def extract_fast_text_features(transcriptions, text_emb_model):
     return total_features
 
 
-def train_svm(feature_matrix, labels, f_mean, f_std):
+def train_svm(feature_matrix, labels, f_mean, f_std, out_model):
     """
     Train svm classifier from features and labels (X and y)
     :param feature_matrix: np array (n samples x 300 dimensions) , labels:
     :param labels: list of labels of examples
     :param f_mean: mean feature vector (used for scaling)
     :param f_std: std feature vector (used for scaling)
+    :param out_model: name of the svm model to save
     :return:
     """
     parameters = {'kernel': ('poly', 'rbf'),
@@ -108,21 +109,21 @@ def train_svm(feature_matrix, labels, f_mean, f_std):
     print('Parameters of best svm model: {} \n'.format(clf_svc.best_params_))
     print('Mean cross-validated score of the '
           'best_estimator: {} \n'.format(clf_svc.best_score_))
-    model_name = "svm_text_model"
-    with open(model_name, 'wb') as fid:
+    with open(out_model, 'wb') as fid:
         cPickle.dump(clf_svc, fid)
         cPickle.dump(f_mean, fid)
         cPickle.dump(f_std, fid)
-    return model_name
+    return
 
 
-def fast_text_and_svm(myData, text_emb_model):
+def fast_text_and_svm(myData, text_emb_model, out_model):
     """
 
     :param myData: csv file with one column transcriptions (text samples)
                    and one column labels
     :param text_emb_model: text embeddings model (e.g. loaded using
                            load_text_embeddings() function
+    :param out_model: name of the svm model to save
     :return model_name: name of the svm model that saved ,
     :return class_file_name: name of csv file that contains the classes
                              of the model
@@ -140,7 +141,7 @@ def fast_text_and_svm(myData, text_emb_model):
     a = np.unique(labels)
     df = pd.DataFrame(columns=['classes'])
     df['classes'] = a
-    class_file_name = 'svm_text_classes.csv'
+    class_file_name = out_model + "_classenames.csv"
     df.to_csv(class_file_name, index=False)
     labels = labels.tolist()
 
@@ -150,11 +151,11 @@ def fast_text_and_svm(myData, text_emb_model):
     feature_matrix , mean , std = normalization(total_features)
 
     # train svm classifier
-    model_name = train_svm(feature_matrix, labels, mean, std)
-    print("Model saved with name:", model_name)
+    train_svm(feature_matrix, labels, mean, std, out_model)
+    print("Model saved with name:", out_model)
     print("Classes of this model saved with name:", class_file_name)
 
-    return model_name, class_file_name
+    return
 
 
 if __name__ == '__main__':
@@ -166,7 +167,10 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--pretrained",
                         help="the path of fasttext pretrained model "
                              "(.bin file)")
+    parser.add_argument("-o", "--outputmodelpath",
+                        help="path to the final svm model to be saved")
+
     args = parser.parse_args()
 
     text_embeddings = load_text_embeddings(args.pretrained)
-    fast_text_and_svm(args.annotation, text_embeddings)
+    fast_text_and_svm(args.annotation, text_embeddings, args.outputmodelpath)
