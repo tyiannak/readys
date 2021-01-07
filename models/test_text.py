@@ -12,19 +12,23 @@ import pandas as pd
 def predict_text_labels(data,fasttext_pretrained_model,svm_model,classes_file):
     sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s', data)
     num_of_samples = len(sentences)
-    feature_matrix = extract_fast_text_features(sentences,fasttext_pretrained_model)
+    feature_matrix, _, _ = extract_fast_text_features(sentences,fasttext_pretrained_model)
+    print(feature_matrix.shape)
     with open(svm_model, 'rb') as fid:
         classifier = cPickle.load(fid)
+        mean = cPickle.load(fid)
+        std = cPickle.load(fid)
     df = pd.read_csv(classes_file)
     classes = df['classes'].tolist()
     dictionary = {}
     for label in classes:
         dictionary[label] = 0
-    for sample in feature_matrix:
-        class_id = classifier.predict(sample)
+    for sample in feature_matrix: # for each sentence:
+        class_id = classifier.predict((sample - mean) / std)
         label = class_id[0]
         dictionary[label] += 1
     for label in dictionary:
+        # TODO: Replace this aggregation by posterior-based aggregation
         dictionary[label] = (dictionary[label] *100) / num_of_samples
     return dictionary
 

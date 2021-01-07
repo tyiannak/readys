@@ -89,10 +89,10 @@ def extract_fast_text_features(transcriptions, fasttext_pretrained_model):
             feature_matrix = ft
         else:
             feature_matrix = np.vstack((feature_matrix, ft))
-    return feature_matrix
+    return feature_matrix, mean, std
 
 
-def train_svm(feature_matrix,labels):
+def train_svm(feature_matrix, labels, f_mean, f_std):
     """
     Train svm classifier from features and labels (X and y)
     :param feature_matrix: np array (n samples x 300 dimensions) , labels:
@@ -112,6 +112,8 @@ def train_svm(feature_matrix,labels):
     model_name = "svm_text_model"
     with open(model_name, 'wb') as fid:
         cPickle.dump(clf_svc, fid)
+        cPickle.dump(f_mean, fid)
+        cPickle.dump(f_std, fid)
     return model_name
 
 
@@ -135,8 +137,8 @@ def fast_text_and_svm(myData, fasttext_pretrained_model):
     df = pd.read_csv(myData)
     transcriptions = df['transcriptions'].tolist()
     labels = df['labels']
-    transcriptions = transcriptions[::2]
-    labels = labels[::2]
+    transcriptions = transcriptions[::10]
+    labels = labels[::10]
     a = np.unique(labels)
     df = pd.DataFrame(columns=['classes'])
     df['classes'] = a
@@ -145,13 +147,14 @@ def fast_text_and_svm(myData, fasttext_pretrained_model):
     labels = labels.tolist()
 
     #extract features based on pretrained fasttext model
-    feature_matrix = extract_fast_text_features(transcriptions,
-                                                fasttext_pretrained_model)
+    feature_matrix, f_m, f_s = extract_fast_text_features(transcriptions,
+                                                          fasttext_pretrained_model)
 
     #train svm classifier
-    model_name = train_svm(feature_matrix, labels)
-    print("Model saved with name:",model_name)
+    model_name = train_svm(feature_matrix, labels, f_m, f_s)
+    print("Model saved with name:", model_name)
     print("Classes of this model saved with name:", class_file_name)
+
     return model_name, class_file_name
 
 
