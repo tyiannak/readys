@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import argparse
 import fasttext
+from sklearn.metrics import f1_score, make_scorer
 
 def text_preprocess(document):
     """
@@ -100,9 +101,10 @@ def train_svm(feature_matrix,labels):
     """
     print(feature_matrix.shape)
     parameters = {'kernel': ('poly', 'rbf'),
-                  'C': [0.001, 0.01, 0.5, 1.0, 5.0, 10.0, 20.0]}
+                  'C': [0.001, 0.01, 0.5, 1.0, 5.0]}
     svc = svm.SVC(gamma="scale")
-    clf_svc = GridSearchCV(svc, parameters, cv=5)
+    f1 = make_scorer(f1_score, average='macro')
+    clf_svc = GridSearchCV(svc, parameters, cv=5, scoring=f1)
     clf_svc.fit(feature_matrix, labels)
     print('Parameters of best svm model: {} \n'.format(clf_svc.best_params_))
     print('Mean cross-validated score of the '
@@ -133,8 +135,8 @@ def fast_text_and_svm(myData, fasttext_pretrained_model):
     df = pd.read_csv(myData)
     transcriptions = df['transcriptions'].tolist()
     labels = df['labels']
-    transcriptions = transcriptions[::10]
-    labels = labels[::10]
+    transcriptions = transcriptions[::2]
+    labels = labels[::2]
     a = np.unique(labels)
     df = pd.DataFrame(columns=['classes'])
     df['classes'] = a
