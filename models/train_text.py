@@ -70,24 +70,11 @@ def extract_fast_text_features(transcriptions, fasttext_pretrained_model):
         k.rstrip("\n")
         # preprocessing
         pr = text_preprocess(k)
-        # for every word in the sentence
-        for word in pr.split():
-            try:
-                # find the most similar words in the dictionary,
-                # if there is not any: continue with next word
-#                result = pretrained_model.wv.most_similar(word)
-                # take the first one of them (the one that matches the most)
-#                most_similar_key, similarity = result[0]  # get the first match
-                # take the vector of it
-#                feature = pretrained_model[most_similar_key]
-                feature = pretrained_model[word]
-                # collect vectors of all words in one sample
-                features.append(feature)
-            except KeyError:
-                continue
-            # TODO: Replace the above try/except condition with:
+        for word in pr.split(): # for every word in the sentence
+            feature = pretrained_model[word]
             #  feature = pretrained_model.get_word_vector(word)
-            #  features.append(feature)
+            features.append(feature)
+
         # average the feature vectors for all the words in a sentence-sample
         X = np.asmatrix(features)
         mean = np.mean(X, axis=0) + 1e-14
@@ -97,7 +84,6 @@ def extract_fast_text_features(transcriptions, fasttext_pretrained_model):
         else:
             total_features = np.vstack((total_features, mean))
     return total_features
-
 
 
 def train_svm(feature_matrix, labels, f_mean, f_std):
