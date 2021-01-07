@@ -1,4 +1,3 @@
-from gensim.models.keyedvectors import KeyedVectors
 from sklearn import svm
 from sklearn.model_selection import GridSearchCV
 import pickle as cPickle
@@ -8,6 +7,7 @@ import numpy as np
 import argparse
 import fasttext
 from sklearn.metrics import f1_score, make_scorer
+
 
 def text_preprocess(document):
     """
@@ -22,6 +22,7 @@ def text_preprocess(document):
     # Convert to lowercase
     document = document.lower()
     return document
+
 
 def normalization(features):
     '''
@@ -40,6 +41,7 @@ def normalization(features):
         else:
             normalized_features = np.vstack((normalized_features, ft))
     return normalized_features , mean , std
+
 
 def extract_fast_text_features(transcriptions, fasttext_pretrained_model):
     """
@@ -91,9 +93,10 @@ def train_svm(feature_matrix, labels, f_mean, f_std):
     Train svm classifier from features and labels (X and y)
     :param feature_matrix: np array (n samples x 300 dimensions) , labels:
     :param labels: list of labels of examples
+    :param f_mean: mean feature vector (used for scaling)
+    :param f_std: std feature vector (used for scaling)
     :return:
     """
-    print(feature_matrix.shape)
     parameters = {'kernel': ('poly', 'rbf'),
                   'C': [0.001, 0.01, 0.5, 1.0, 5.0]}
     svc = svm.SVC(gamma="scale")
@@ -141,7 +144,8 @@ def fast_text_and_svm(myData, fasttext_pretrained_model):
     labels = labels.tolist()
 
     #extract features based on pretrained fasttext model
-    total_features = extract_fast_text_features(transcriptions,fasttext_pretrained_model)
+    total_features = extract_fast_text_features(transcriptions,
+                                                fasttext_pretrained_model)
     #normalization
     feature_matrix , mean , std = normalization(total_features)
 
