@@ -25,11 +25,11 @@ def text_preprocess(document):
 
 
 def normalization(features):
-    '''
+    """
     Normalize features (dimensions)
     :param features: unnormalized features (num_of_samples x 300)
     :return: normalized_features , mean, std
-    '''
+    """
     X = np.asmatrix(features)
     mean = np.mean(X, axis=0) + 1e-14
     std = np.std(X, axis=0) + 1e-14
@@ -40,7 +40,7 @@ def normalization(features):
             normalized_features = ft
         else:
             normalized_features = np.vstack((normalized_features, ft))
-    return normalized_features , mean , std
+    return normalized_features, mean, std
 
 
 def extract_fast_text_features(transcriptions, fasttext_pretrained_model):
