@@ -7,15 +7,24 @@ import numpy as np
 import argparse
 import fasttext
 from sklearn.metrics import f1_score, make_scorer
+from gensim.models import KeyedVectors
+
+eps = np.finfo(float).eps
 
 
-def load_text_embeddings(text_embedding_path):
+def load_text_embeddings(text_embedding_path, embeddings_limit=None):
     """
     Loads the fasttext text representation model
     :param text_embedding_path: path to the fasttext .bin file
+    :param embeddings_limit: limit of the number of embeddings.
+        If None, then the whole set of embeddings is loaded.
     :return: fasttext model
     """
-    return fasttext.load_model(text_embedding_path)
+    if embeddings_limit:
+        return KeyedVectors.load_word2vec_format("wiki.en.vec",
+                                                 limit=embeddings_limit)
+    else:
+        return fasttext.load_model(text_embedding_path)
 
 
 def text_preprocess(document):
@@ -36,12 +45,12 @@ def text_preprocess(document):
 def normalization(features):
     """
     Normalize features (dimensions)
-    :param features: unnormalized features (num_of_samples x 300)
+    :param features: unormalized features (num_of_samples x 300)
     :return: normalized_features , mean, std
     """
     X = np.asmatrix(features)
-    mean = np.mean(X, axis=0) + 1e-14
-    std = np.std(X, axis=0) + 1e-14
+    mean = np.mean(X, axis=0) + eps
+    std = np.std(X, axis=0) + eps
     normalized_features = np.array([])
     for i, f in enumerate(X):
         ft = (f - mean) / std
@@ -66,24 +75,27 @@ def extract_fast_text_features(transcriptions, text_emb_model):
     """
 
     # for every sample-sentence
-    total_features = []
 
     for i, k in enumerate(transcriptions):
-        print(i)
         features = []
         k.rstrip("\n")
         # preprocessing
         pr = text_preprocess(k)
         for word in pr.split(): # for every word in the sentence
-            feature = text_emb_model[word]
-            #  feature = text_emb_model.get_word_vector(word)
-            features.append(feature)
+            try:
+                result = text_emb_model.similar_by_word(word)
+                most_similar_key, similarity = result[0]
+                feature = text_emb_model[most_similar_key]
+                features.append(feature)
+            except:
+                continue
 
         # average the feature vectors for all the words in a sentence-sample
         X = np.asmatrix(features)
-        mean = np.mean(X, axis=0) + 1e-14
+        print("{},   {}".format(i, X.shape))
+        mean = np.mean(X, axis=0) + eps
         # save one vector(300 dimensional) for every sample
-        if total_features == []:
+        if i == 0:
             total_features = mean
         else:
             total_features = np.vstack((total_features, mean))
@@ -116,10 +128,10 @@ def train_svm(feature_matrix, labels, f_mean, f_std, out_model):
     return
 
 
-def fast_text_and_svm(myData, text_emb_model, out_model):
+def fast_text_and_svm(data, text_emb_model, out_model):
     """
 
-    :param myData: csv file with one column transcriptions (text samples)
+    :param data: csv file with one column transcriptions (text samples)
                    and one column labels
     :param text_emb_model: text embeddings model (e.g. loaded using
                            load_text_embeddings() function
@@ -130,7 +142,7 @@ def fast_text_and_svm(myData, text_emb_model, out_model):
     """
 
     # load our samples
-    df = pd.read_csv(myData)
+    df = pd.read_csv(data)
     transcriptions = df['transcriptions'].tolist()
     labels = df['labels']
 
@@ -148,7 +160,7 @@ def fast_text_and_svm(myData, text_emb_model, out_model):
     # extract features based on pretrained fasttext model
     total_features = extract_fast_text_features(transcriptions, text_emb_model)
     # normalization
-    feature_matrix , mean , std = normalization(total_features)
+    feature_matrix, mean, std = normalization(total_features)
 
     # train svm classifier
     train_svm(feature_matrix, labels, mean, std, out_model)
@@ -160,17 +172,18 @@ def fast_text_and_svm(myData, text_emb_model, out_model):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-a", "--annotation",
+    parser.add_argument("-a", "--annotation", required=True,
                         help="the path of our data samples "
                              "(csv with column transcriptions "
                              "and one column labels)")
-    parser.add_argument("-p", "--pretrained",
+    parser.add_argument("-p", "--pretrained", required=True,
                         help="the path of fasttext pretrained model "
                              "(.bin file)")
-    parser.add_argument("-o", "--outputmodelpath",
+    parser.add_argument("-o", "--outputmodelpath", required=False, default="",
                         help="path to the final svm model to be saved")
+    parser.add_argument('-l', '--embeddings_limit', required=False, default=None, type=int,
+                        help='Strategy to apply in transfer learning: 0 or 1.')
 
     args = parser.parse_args()
-
-    text_embeddings = load_text_embeddings(args.pretrained)
+    text_embeddings = load_text_embeddings(args.pretrained, args.embeddings_limit)
     fast_text_and_svm(args.annotation, text_embeddings, args.outputmodelpath)
