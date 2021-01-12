@@ -1,6 +1,3 @@
-from sklearn import svm
-from sklearn.model_selection import GridSearchCV
-from sklearn.model_selection import RepeatedStratifiedKFold
 import pickle as cPickle
 import re
 import pandas as pd
@@ -8,7 +5,10 @@ import numpy as np
 import argparse
 import fasttext
 from gensim.models import KeyedVectors
-
+from sklearn import svm
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.metrics import confusion_matrix
 eps = np.finfo(float).eps
 
 
@@ -136,6 +136,10 @@ def train_svm(feature_matrix, labels, f_mean, f_std, out_model):
     print("Parameters of best svm model: {}".format(clf_params))
     print("Best validation score:      {:0.5f} (+/-{:0.5f})".format(clf_score,
                                                                     clf_stdev))
+
+    y_pred = clf_svc.predict(feature_matrix)
+
+    print("Confusion Matrix: \n {}".format(confusion_matrix(labels, y_pred)))
 
     with open(out_model, 'wb') as fid:
         cPickle.dump(clf_svc, fid)
