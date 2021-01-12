@@ -1,5 +1,6 @@
 from sklearn import svm
 from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RepeatedStratifiedKFold
 import pickle as cPickle
 import re
 import pandas as pd
@@ -21,7 +22,7 @@ def load_text_embeddings(text_embedding_path, embeddings_limit=None):
     :return: fasttext model
     """
     if embeddings_limit:
-        return KeyedVectors.load_word2vec_format("wiki.en.vec",
+        return KeyedVectors.load_word2vec_format(text_embedding_path,
                                                  limit=embeddings_limit)
     else:
         return fasttext.load_model(text_embedding_path)
@@ -61,7 +62,8 @@ def normalization(features):
     return normalized_features, mean, std
 
 
-def extract_fast_text_features(transcriptions, text_emb_model):
+def extract_fast_text_features(transcriptions, text_emb_model,
+                               embeddings_limit=None):
     """
     For every sentence (example) extract 300 dimensional feature vector
     based on fasttext pretrained model
@@ -82,17 +84,19 @@ def extract_fast_text_features(transcriptions, text_emb_model):
         # preprocessing
         pr = text_preprocess(k)
         for word in pr.split(): # for every word in the sentence
-            try:
-                result = text_emb_model.similar_by_word(word)
-                most_similar_key, similarity = result[0]
-                feature = text_emb_model[most_similar_key]
+            if embeddings_limit:
+                try:
+                    result = text_emb_model.similar_by_word(word)
+                    most_similar_key, similarity = result[0]
+                    feature = text_emb_model[most_similar_key]
+                    features.append(feature)
+                except:
+                    continue
+            else:
+                feature = text_emb_model[word]
                 features.append(feature)
-            except:
-                continue
-
         # average the feature vectors for all the words in a sentence-sample
         X = np.asmatrix(features)
-        print("{},   {}".format(i, X.shape))
         mean = np.mean(X, axis=0) + eps
         # save one vector(300 dimensional) for every sample
         if i == 0:
@@ -112,15 +116,27 @@ def train_svm(feature_matrix, labels, f_mean, f_std, out_model):
     :param out_model: name of the svm model to save
     :return:
     """
-    parameters = {'kernel': ('poly', 'rbf'),
-                  'C': [0.001, 0.01, 0.5, 1.0, 5.0]}
-    svc = svm.SVC(gamma="scale")
-    f1 = make_scorer(f1_score, average='macro')
-    clf_svc = GridSearchCV(svc, parameters, cv=5, scoring=f1)
-    clf_svc.fit(feature_matrix, labels)
-    print('Parameters of best svm model: {} \n'.format(clf_svc.best_params_))
-    print('Mean cross-validated score of the '
-          'best_estimator: {} \n'.format(clf_svc.best_score_))
+    clf = svm.SVC(kernel='rbf', class_weight='balanced')
+    svm_parameters = {'gamma': ['auto', 'scale', 1e-3, 1e-4, 1e-5, 1e-6],
+                      'C': [1e-3, 1e-2, 1e-1, 1, 0.5e1, 1e1]}
+
+    cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3)
+
+    grid_clf = GridSearchCV(
+        clf, dict(gamma=svm_parameters['gamma'],
+                    C=svm_parameters['C']), cv=cv,
+                   scoring='f1_macro', n_jobs=-1)
+
+    grid_clf.fit(feature_matrix, labels)
+
+    clf_svc = grid_clf.best_estimator_
+    clf_params = grid_clf.best_params_
+    clf_score = grid_clf.best_score_
+    clf_stdev = grid_clf.cv_results_['std_test_score'][grid_clf.best_index_]
+
+    print("Parameters of best svm model: {}".format(clf_params))
+    print("Best validation score:      {:0.5f} (+/-{:0.5f})".format(clf_score, clf_stdev))
+
     with open(out_model, 'wb') as fid:
         cPickle.dump(clf_svc, fid)
         cPickle.dump(f_mean, fid)
@@ -128,7 +144,8 @@ def train_svm(feature_matrix, labels, f_mean, f_std, out_model):
     return
 
 
-def fast_text_and_svm(data, text_emb_model, out_model):
+def fast_text_and_svm(data, text_emb_model, out_model,
+                      embeddings_limit=None):
     """
 
     :param data: csv file with one column transcriptions (text samples)
@@ -158,11 +175,15 @@ def fast_text_and_svm(data, text_emb_model, out_model):
     labels = labels.tolist()
 
     # extract features based on pretrained fasttext model
-    total_features = extract_fast_text_features(transcriptions, text_emb_model)
+    print("Extracting text features...")
+    total_features = extract_fast_text_features(transcriptions, text_emb_model,
+                                                embeddings_limit)
     # normalization
+    print("Normalizing text features...")
     feature_matrix, mean, std = normalization(total_features)
 
     # train svm classifier
+    print("Training SVM classifier using GridSearchCV...")
     train_svm(feature_matrix, labels, mean, std, out_model)
     print("Model saved with name:", out_model)
     print("Classes of this model saved with name:", class_file_name)
@@ -179,11 +200,12 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--pretrained", required=True,
                         help="the path of fasttext pretrained model "
                              "(.bin file)")
-    parser.add_argument("-o", "--outputmodelpath", required=False, default="",
+    parser.add_argument("-o", "--outputmodelpath", required=False, default="SVM",
                         help="path to the final svm model to be saved")
     parser.add_argument('-l', '--embeddings_limit', required=False, default=None, type=int,
                         help='Strategy to apply in transfer learning: 0 or 1.')
 
     args = parser.parse_args()
     text_embeddings = load_text_embeddings(args.pretrained, args.embeddings_limit)
-    fast_text_and_svm(args.annotation, text_embeddings, args.outputmodelpath)
+    fast_text_and_svm(args.annotation, text_embeddings,
+                      args.outputmodelpath, args.embeddings_limit)
