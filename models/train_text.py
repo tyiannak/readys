@@ -7,7 +7,6 @@ import pandas as pd
 import numpy as np
 import argparse
 import fasttext
-from sklearn.metrics import f1_score, make_scorer
 from gensim.models import KeyedVectors
 
 eps = np.finfo(float).eps
@@ -135,7 +134,8 @@ def train_svm(feature_matrix, labels, f_mean, f_std, out_model):
     clf_stdev = grid_clf.cv_results_['std_test_score'][grid_clf.best_index_]
 
     print("Parameters of best svm model: {}".format(clf_params))
-    print("Best validation score:      {:0.5f} (+/-{:0.5f})".format(clf_score, clf_stdev))
+    print("Best validation score:      {:0.5f} (+/-{:0.5f})".format(clf_score,
+                                                                    clf_stdev))
 
     with open(out_model, 'wb') as fid:
         cPickle.dump(clf_svc, fid)
@@ -164,7 +164,7 @@ def fast_text_and_svm(data, text_emb_model, out_model,
     labels = df['labels']
 
     # TODO: set that to 1
-    hop_samples = 5
+    hop_samples = 2
     transcriptions = transcriptions[::hop_samples]
     labels = labels[::hop_samples]
     a = np.unique(labels)
@@ -200,12 +200,15 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--pretrained", required=True,
                         help="the path of fasttext pretrained model "
                              "(.bin file)")
-    parser.add_argument("-o", "--outputmodelpath", required=False, default="SVM",
+    parser.add_argument("-o", "--outputmodelpath", required=False,
+                        default="SVM",
                         help="path to the final svm model to be saved")
-    parser.add_argument('-l', '--embeddings_limit', required=False, default=None, type=int,
+    parser.add_argument('-l', '--embeddings_limit', required=False,
+                        default=None, type=int,
                         help='Strategy to apply in transfer learning: 0 or 1.')
 
     args = parser.parse_args()
-    text_embeddings = load_text_embeddings(args.pretrained, args.embeddings_limit)
+    text_embeddings = load_text_embeddings(args.pretrained,
+                                           args.embeddings_limit)
     fast_text_and_svm(args.annotation, text_embeddings,
                       args.outputmodelpath, args.embeddings_limit)
