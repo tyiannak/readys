@@ -1,16 +1,18 @@
 import argparse
-from pyAudioAnalysis.audioSegmentation import  mid_term_file_classification
+from pyAudioAnalysis.audioSegmentation import mid_term_file_classification
 
-def predict_audio_labels(audio_file,svm_model):
-    '''
+
+def predict_audio_labels(audio_file, svm_model):
+    """
     Predict audio class
     :param audio_file: path of wav file
     :param svm_model: path of saved svm classifier
-    :return: a dictionary that has as elements the classes and as values the percentage (%) that this wav belongs to each class
-    '''
-    labels,class_names,_,_ = mid_term_file_classification(audio_file,svm_model,"svm_rbf")
-    print(class_names)
-    print(labels)
+    :return: a dictionary that has as elements the classes
+        and as values the percentage (%) that this wav
+        belongs to each class
+    """
+    labels, class_names, _, _ = mid_term_file_classification(
+        audio_file, svm_model, "svm_rbf")
     num_of_samples = len(labels)
     dictionary = {}
     for label in class_names:
@@ -24,7 +26,6 @@ def predict_audio_labels(audio_file,svm_model):
     return dictionary
 
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input",
@@ -32,5 +33,6 @@ if __name__ == '__main__':
     parser.add_argument("-c", "--classifier",
                         help="the path of the classifier")
     args = parser.parse_args()
-    results = predict_audio_labels(args.input,args.classifier)
-    print(results)
+    results = predict_audio_labels(args.input, args.classifier)
+    print("Predicted probability percentage "
+          "for each class:\n     {}".format(results))

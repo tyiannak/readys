@@ -4,15 +4,17 @@ import argparse
 
 
 def train_svm(files_path, output_model):
-    '''
+    """
     Train audio models
-    :param files_path: directory which contains audio organized in folders of classes
+    :param files_path: directory which contains
+        audio organized in folders of classes
+    :param output_model: path to save the output model
     :return: the name of the saved model
-    '''
+    """
 
-    onlydir = [x[0] for x in os.walk(files_path)]
-    onlydir = onlydir[1:]
-    extract_features_and_train(onlydir, 3, 3,
+    dirs = [x[0] for x in os.walk(files_path)]
+    dirs = dirs[1:]
+    extract_features_and_train(dirs, 3, 3,
                                0.2, 0.2, "svm_rbf",
                                output_model)
     return
@@ -21,7 +23,9 @@ def train_svm(files_path, output_model):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input",
-                        help="the path of directory which contains audio organized in folders of classes" )
+                        help="the path of directory which "
+                             "contains audio organized "
+                             "in folders of classes")
     parser.add_argument("-o", "--outputmodelpath",
                         help="path to the final svm model to be saved")
     args = parser.parse_args()
