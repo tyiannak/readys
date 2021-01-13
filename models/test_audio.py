@@ -28,9 +28,9 @@ def predict_audio_labels(audio_file, svm_model):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input",
+    parser.add_argument("-i", "--input", required=True,
                         help="the path of audio file" )
-    parser.add_argument("-c", "--classifier",
+    parser.add_argument("-c", "--classifier", required=True,
                         help="the path of the classifier")
     args = parser.parse_args()
     results = predict_audio_labels(args.input, args.classifier)
