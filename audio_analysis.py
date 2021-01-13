@@ -92,8 +92,12 @@ def audio_based_feature_extraction(input_file):
     # Load classifier:
 
     # TODO: load all models stored in a particular folder and apply
+    # TODO: load all segment-level models that have been trainied in
+    #       a predefined path such as data/models/audio_*
+    # TODO check if it better to directly call pyAudioAnalysis.segmentation...
+
     classifier, mean, std, classes, mid_window, mid_step, short_window, \
-    short_step, compute_beat = load_model("segment_classifier")
+    short_step, compute_beat = load_model("data/models/audio_arousal")
 
     # read audio file and convert to mono
     sampling_rate, signal = audioBasicIO.read_audio_file(input_file)

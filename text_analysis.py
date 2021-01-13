@@ -30,8 +30,9 @@ def text_features(model, text):
         features.append(features_m[f])
         features_names.append(f'fast_text_model_emeddings_{f}')
 
+    # TODO: load all segment-level models that have been trainied in
+    #       a predefined path such as segment_models/text
     # TODO: add pretrained model posteriors, e.g. P(y=negative|x) etc
-
     return features, features_names
 
 
