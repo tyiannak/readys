@@ -94,8 +94,8 @@ def audio_based_feature_extraction(input_file):
     # TODO: load all models stored in a particular folder and apply
     # TODO: load all segment-level models that have been trainied in
     #       a predefined path such as data/models/audio_*
-    # TODO check if it better to directly call pyAudioAnalysis.segmentation...
-
+    # TODO use predict_audio_labels(audio_file, svm_model) instead of the following block of code
+    # (do the same in thext analysis)
     classifier, mean, std, classes, mid_window, mid_step, short_window, \
     short_step, compute_beat = load_model("data/models/audio_arousal")
 
