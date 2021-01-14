@@ -7,7 +7,7 @@ import pandas as pd
 
 
 def predict_text_labels(data, fasttext_pretrained_model, svm_model,
-                        classes_file):
+                        classes_file, embeddings_limit=None):
     """
     segment-level classification of text to classify into aggregated classes
     :param data: string(text) that we want to classify
@@ -18,8 +18,9 @@ def predict_text_labels(data, fasttext_pretrained_model, svm_model,
     """
     sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s', data)
     num_of_samples = len(sentences)
-    feature_matrix = extract_fast_text_features(sentences,
-                                                fasttext_pretrained_model)
+    feature_matrix = extract_fast_text_features(
+        sentences, fasttext_pretrained_model,
+        embeddings_limit)
     print(feature_matrix.shape)
     with open(svm_model, 'rb') as fid:
         classifier = cPickle.load(fid)
@@ -53,11 +54,16 @@ if __name__ == '__main__':
     parser.add_argument("-n", "--names",
                         help="the path of csv file that contains the"
                               " name of classes of this specific model")
+    parser.add_argument('-l', '--embeddings_limit', required=False, default=None, type=int,
+                        help='Strategy to apply in transfer learning: 0 or 1.')
+
     args = parser.parse_args()
 
-    text_embed_model = load_text_embeddings(args.pretrained)
+    text_embed_model = load_text_embeddings(args.pretrained,
+                                            args.embeddings_limit)
     results = predict_text_labels(args.input, text_embed_model,
-                                  args.classifier, args.names)
+                                  args.classifier, args.names,
+                                  args.embeddings_limit)
     print(results)
 
 
