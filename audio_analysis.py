@@ -1,10 +1,10 @@
 import wave
-from pyAudioAnalysis import audioBasicIO
-from pyAudioAnalysis.audioTrainTest import load_model, classifier_wrapper
-from pyAudioAnalysis import MidTermFeatures as aF
 import numpy as np
 from pyAudioAnalysis import audioSegmentation as aS
 from pyAudioAnalysis import audioBasicIO as aio
+from models.test_audio import predict_audio_labels
+import os
+import argparse
 
 def get_wav_properties(wav_path):
     """
@@ -17,132 +17,75 @@ def get_wav_properties(wav_path):
         duration = wave_file.getnframes() / float(fs)
     return fs, duration
 
+def silence_features(segment_limits,dur):
+    '''
+    Extract silence features based on audio segments
+    :param segment_limits: A list of start-end timestamps for audio segments
+    :param dur: The total duration of audio file
+    :return: A list of silence_features, number_of_pauses, total_speech
+    '''
+    total_speech = 0.0
+    silence_durations = []
+    counter = 0
+    for k in segment_limits:
+        if counter == 0:
+            silence_durations.append(k[0])
+        elif counter == (len(segment_limits) - 1):
+            p = counter - 1
+            silence_durations.append(k[0] - segment_limits[p][1])
+            silence_durations.append(dur - k[1])
+        else:
+            p = counter - 1
+            silence_durations.append(k[0] - segment_limits[p][1])
+        word_speech = k[1] - k[0]
+        total_speech = total_speech + word_speech
+        counter = counter + 1
+    speech_ratio = total_speech / dur
+    speech_ratio = float("{:.2f}".format(speech_ratio))
+    number_of_pauses = len(silence_durations)
+    silence_durations = np.array(silence_durations)
+    std = np.std(silence_durations)
+    std = float("{:.2f}".format(std))
+    average_silence_dur = np.mean(silence_durations)
+    average_silence_dur = float("{:.2f}".format(average_silence_dur))
+    silence_seg_per_minute = float("{:.2f}".format(number_of_pauses / (dur / 60.0)))
+    word_rate_in_speech = len(segment_limits) / total_speech
+    word_rate_in_speech = float("{:.2f}".format(word_rate_in_speech))
+    silence_features = [average_silence_dur,silence_seg_per_minute,std,speech_ratio,word_rate_in_speech]
+    return silence_features,number_of_pauses,total_speech
 
-def audio_based_feature_extraction(input_file):
-
+def audio_based_feature_extraction(input_file,models_directory):
+    '''
+        Export all features for a wav file (silence based + classifiers based)
+        :param input_file: the audio file
+        :param models_directory: the directory which contains all trained classifiers (models' files + MEANS files)
+        :return: features , feature_names , metadata
+    '''
     # A. silence features
     fs, dur = get_wav_properties(input_file)
     fs, x = aio.read_audio_file(input_file)
 
     # get the silence estimates using pyAudioAnalysis semisupervised approach
     # for different windows and steps
-    seg_limits_short = aS.silence_removal(x, fs, 0.06, 0.06, 0.07)
-    seg_limits_long = aS.silence_removal(x, fs, 0.1, 0.1, 0.3)
+    seg_limits_short = aS.silence_removal(x, fs, 0.04, 0.04, 0.07)
+    seg_limits_long = aS.silence_removal(x, fs, 0.07, 0.07, 0.3)
 
     # short windows
-    total_speech_short = 0.0
-    silence_durations_short = []
-    counter = 0
-    for k in seg_limits_short:
-        if counter == 0:
-            silence_durations_short.append(k[0])
-        elif counter == (len(seg_limits_short) - 1):
-            p = counter - 1
-            silence_durations_short.append(k[0] - seg_limits_short[p][1])
-            silence_durations_short.append(dur - k[1])
-        else:
-            p = counter - 1
-            silence_durations_short.append(k[0] - seg_limits_short[p][1])
-        word_speech_short = k[1] - k[0]
-        total_speech_short = total_speech_short + word_speech_short
-        counter = counter + 1
-    speech_ratio_short = total_speech_short / dur
-    speech_ratio_short = float("{:.2f}".format(speech_ratio_short))
-    number_of_pauses_short = len(silence_durations_short)
-    silence_durations_short = np.array(silence_durations_short)
-    std_short = np.std(silence_durations_short)
-    std_short = float("{:.2f}".format(std_short))
-    average_silence_dur_short = np.mean(silence_durations_short)
-    average_silence_dur_short = float("{:.2f}".format(average_silence_dur_short))
-    silence_seg_per_minute_short = float("{:.2f}".format(number_of_pauses_short/(dur/60.0)))
-    word_rate_in_speech_short = len(seg_limits_short)/total_speech_short
-    word_rate_in_speech_short = float("{:.2f}".format(word_rate_in_speech_short))
-
+    silence_features_short, number_of_pauses_short, total_speech_short = silence_features(seg_limits_short, dur)
     # long windows
-    total_speech_long = 0.0
-    counter = 0
-    silence_durations_long = []
-    for k in seg_limits_long:
-        if counter == 0:
-            silence_durations_long.append(k[0])
-        elif counter == (len(seg_limits_long) - 1):
-            p = counter - 1
-            silence_durations_long.append(k[0] - seg_limits_long[p][1])
-            silence_durations_long.append(dur - k[1])
-        else:
-            p = counter - 1
-            silence_durations_long.append(k[0] - seg_limits_long[p][1])
-        word_speech_long = k[1] - k[0]
-        total_speech_long = total_speech_long + word_speech_long
-        counter = counter + 1
-    speech_ratio_long = total_speech_long / dur
-    speech_ratio_long = float("{:.2f}".format(speech_ratio_long))
-    number_of_pauses_long = len(silence_durations_long)
-    silence_durations_long = np.array(silence_durations_long)
-    std_long = np.std(silence_durations_long)
-    std_long = float("{:.2f}".format(std_long))
-    average_silence_dur_long = np.mean(silence_durations_long)
-    average_silence_dur_long = float("{:.2f}".format(average_silence_dur_long))
-    silence_seg_per_minute_long = float("{:.2f}".format(number_of_pauses_long /
-                                                        (dur / 60.0)))
-    word_rate_in_speech_long = len(seg_limits_long) / total_speech_long
-    word_rate_in_speech_long = float("{:.2f}".format(word_rate_in_speech_long))
+    silence_features_long, number_of_pauses_long, total_speech_long = silence_features(seg_limits_long, dur)
+
 
     # B. segment model-based features
     # Load classifier:
+    dictionaries = []
+    for filename in os.listdir(models_directory):
+        if not (filename.endswith("MEANS")) and not (filename.endswith(".arff")):
+            model_path = os.path.join(models_directory, filename)
+            dictionary = predict_audio_labels(input_file, model_path)
+            dictionaries.append(dictionary)
 
-    # TODO: load all models stored in a particular folder and apply
-    # TODO: load all segment-level models that have been trainied in
-    #       a predefined path such as data/models/audio_*
-    # TODO use predict_audio_labels(audio_file, svm_model) instead of the following block of code
-    # (do the same in thext analysis)
-    classifier, mean, std, classes, mid_window, mid_step, short_window, \
-    short_step, compute_beat = load_model("data/models/audio_arousal")
-
-    # read audio file and convert to mono
-    sampling_rate, signal = audioBasicIO.read_audio_file(input_file)
-    signal = audioBasicIO.stereo_to_mono(signal)
-
-    if sampling_rate == 0:
-        # audio file IO problem
-        return -1, -1, -1
-    if signal.shape[0] / float(sampling_rate) < mid_window:
-        mid_window = signal.shape[0] / float(sampling_rate)
-
-    # feature extraction:
-    mid_features, s, _ = \
-        aF.mid_feature_extraction(signal, sampling_rate,
-                                  mid_window * sampling_rate,
-                                  mid_step * sampling_rate,
-                                  round(sampling_rate * short_window),
-                                  round(sampling_rate * short_step))
-    classes = []
-
-    # take every example (every mid term window)
-    mid_features = mid_features.tolist()
-    tlist = list(zip(*mid_features))
-    tlist = np.array(tlist)
-    for i in tlist:
-        feature_vector = (i - mean) / std  # normalization
-        class_id, probability = classifier_wrapper(classifier, "svm_rbf",
-                                                   feature_vector)
-        classes.append(class_id)
-
-    # TODO: This should be generalized as an aggregation of posteriors of the
-    # segment classifiers
-    num_of_highs = 0
-    num_of_neutrals = 0
-    num_of_lows = 0
-    for i in classes:
-        if i == 0.0:
-            num_of_highs = num_of_highs + 1
-        elif i == 1.0:
-            num_of_neutrals = num_of_neutrals + 1
-        else:
-            num_of_lows = num_of_lows + 1
-    high_percentage = float("{:.2f}".format(num_of_highs * 100 / len(classes)))
-    neutral_percentage = float("{:.2f}".format(num_of_neutrals * 100 / len(classes)))
-    low_percentage = float("{:.2f}".format(num_of_lows * 100 / len(classes)))
+    # TODO: This should be generalized as an aggregation of posteriors of the segment classifiers
 
     # list of features and feature names
     feature_names = ["Average silence duration short (sec)",
@@ -152,23 +95,20 @@ def audio_based_feature_extraction(input_file):
                      "Std short","Std long","Speech ratio short (sec)",
                      "Speech ratio long (sec)",
                      "Word rate in speech short (words/sec)",
-                     "Word rate in speech long (words/sec)",
-                     "High class (%)",
-                     "Neutral class (%)",
-                     "Low class (%)"]
+                     "Word rate in speech long (words/sec)"]
+    features = []
 
-    features = [average_silence_dur_short,
-                average_silence_dur_long,
-                silence_seg_per_minute_short,
-                silence_seg_per_minute_long,
-                std_short,std_long,
-                speech_ratio_short,
-                speech_ratio_long,
-                word_rate_in_speech_short,
-                word_rate_in_speech_long,
-                high_percentage,
-                neutral_percentage,
-                low_percentage]
+    for i in range(len(silence_features_short)):
+        features.append(silence_features_short[i])
+        features.append(silence_features_long[i])
+
+    for dictionary in dictionaries:
+        for label in dictionary:
+            feature_string = label + "(%)"
+            feature_value = dictionary[label]
+            feature_names.append(feature_string)
+            features.append(feature_value)
+
     metadata = {
         "Number of pauses short": number_of_pauses_short,
         "Number of pauses long" : number_of_pauses_long,
@@ -193,3 +133,15 @@ def silence_removal(audio_path):
     joinedaudio = b"".join(concataudio)
     write_wave("Non-Silenced-Audio.wav", joinedaudio, sample_rate)
 """
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", "--input", required=True,
+                        help="the path of audio file" )
+    parser.add_argument("-c", "--classifiers_path", required=True,
+                        help="the directory which contains all trained classifiers (models' files + MEANS files)")
+    args = parser.parse_args()
+    features,feature_names,metadata = audio_based_feature_extraction(args.input, args.classifiers_path)
+    print("Features names:\n {}".format(feature_names))
+    print("Features:\n {}".format(features))
+    print("Metadata:\n {}".format(metadata))

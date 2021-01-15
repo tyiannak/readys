@@ -1,1 +1,1 @@
-{"audiofile": "output.wav", "google_credentials": "apikey.json", "reference_text": "texts/\u0393\u03b5\u03bb\u03b1\u03c3\u03c4\u03ae \u03bf\u03b9\u03ba\u03bf\u03b3\u03ad\u03bd\u03b5\u03b9\u03b1.txt"}
+{"audiofile": "output.wav", "google_credentials": "apikey.json", "reference_text": "ena_oneiro.txt" , "audio_models_directory": "data/models/audio", "text_models_directory" : "data/models/text","fasttext_pretrained_model_path" : "wiki.en.vec"}

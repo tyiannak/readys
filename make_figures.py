@@ -17,14 +17,19 @@ def make_figures():
     input_file=conf['audiofile']
     google_credentials=conf['google_credentials']
     reference_text = conf['reference_text']
+    audio_models_directory = conf['audio_models_directory']
+    text_models_directory = conf['text_models_directory']
+    fasttext_pretrained_model_path = conf['fasttext_pretrained_model_path']
 
-    embeddings_model = load_tem()
+    embeddings_model = load_tem(fasttext_pretrained_model_path,500000)
 
     #text feature extraction
     text_features, text_feature_names, text_metadata = tbfe(input_file,
-                                                            embeddings_model,
                                                             google_credentials,
-                                                            reference_text)
+                                                            text_models_directory,
+                                                            embeddings_model,
+                                                            reference_text,
+                                                            500000)
     # audio feature extraction
     if text_metadata['Number of words']== 0:
         audio_feature_names = ["Average silence duration short (sec)",
@@ -36,10 +41,7 @@ def make_figures():
                                "Speech ratio short (sec)",
                                "Speech ratio long (sec)",
                                "Word rate in speech short (words/sec)",
-                               "Word rate in speech long (words/sec)",
-                               "High class (%)",
-                               "Neutral class (%)",
-                               "Low class (%)"]
+                               "Word rate in speech long (words/sec)"]
         audio_features = [0] * len(audio_feature_names)
         audio_metadata = {
             "Number of pauses short": 0,
@@ -48,7 +50,7 @@ def make_figures():
             "Total speech duration long (sec)": 0
         }
     else:
-        audio_features, audio_feature_names, audio_metadata = abfe(input_file)
+        audio_features, audio_feature_names, audio_metadata = abfe(input_file,audio_models_directory)
     '''
     rec = text_features[0]
     pre = text_features[1]
