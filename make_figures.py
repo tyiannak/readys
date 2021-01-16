@@ -20,7 +20,6 @@ def make_figures():
     audio_models_directory = conf['audio_models_directory']
     text_models_directory = conf['text_models_directory']
     fasttext_pretrained_model_path = conf['fasttext_pretrained_model_path']
-
     embeddings_model = load_tem(fasttext_pretrained_model_path,500000)
 
     #text feature extraction
