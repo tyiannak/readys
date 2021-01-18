@@ -6,6 +6,7 @@ from models.test_audio import predict_audio_labels
 import os
 import argparse
 
+
 def get_wav_properties(wav_path):
     """
     Reads sampling rate and duration of an WAV audio file
@@ -17,13 +18,14 @@ def get_wav_properties(wav_path):
         duration = wave_file.getnframes() / float(fs)
     return fs, duration
 
+
 def silence_features(segment_limits,dur):
-    '''
+    """
     Extract silence features based on audio segments
     :param segment_limits: A list of start-end timestamps for audio segments
     :param dur: The total duration of audio file
     :return: A list of silence_features, number_of_pauses, total_speech
-    '''
+    """
     total_speech = 0.0
     silence_durations = []
     counter = 0
@@ -48,19 +50,26 @@ def silence_features(segment_limits,dur):
     std = float("{:.2f}".format(std))
     average_silence_dur = np.mean(silence_durations)
     average_silence_dur = float("{:.2f}".format(average_silence_dur))
-    silence_seg_per_minute = float("{:.2f}".format(number_of_pauses / (dur / 60.0)))
+    silence_seg_per_minute = float("{:.2f}".format(number_of_pauses /
+                                                   (dur / 60.0)))
     word_rate_in_speech = len(segment_limits) / total_speech
     word_rate_in_speech = float("{:.2f}".format(word_rate_in_speech))
-    silence_features = [average_silence_dur,silence_seg_per_minute,std,speech_ratio,word_rate_in_speech]
-    return silence_features,number_of_pauses,total_speech
+    silence_features = [average_silence_dur,
+                        silence_seg_per_minute,
+                        std,
+                        speech_ratio,
+                        word_rate_in_speech]
+    return silence_features, number_of_pauses, total_speech
+
 
 def audio_based_feature_extraction(input_file,models_directory):
-    '''
+    """
         Export all features for a wav file (silence based + classifiers based)
         :param input_file: the audio file
-        :param models_directory: the directory which contains all trained classifiers (models' files + MEANS files)
+        :param models_directory: the directory which contains all trained
+        classifiers (models' files + MEANS files)
         :return: features , feature_names , metadata
-    '''
+    """
     # A. silence features
     fs, dur = get_wav_properties(input_file)
     fs, x = aio.read_audio_file(input_file)
@@ -71,21 +80,22 @@ def audio_based_feature_extraction(input_file,models_directory):
     seg_limits_long = aS.silence_removal(x, fs, 0.07, 0.07, 0.3)
 
     # short windows
-    silence_features_short, number_of_pauses_short, total_speech_short = silence_features(seg_limits_short, dur)
+    silence_features_short, number_of_pauses_short, total_speech_short = \
+        silence_features(seg_limits_short, dur)
     # long windows
-    silence_features_long, number_of_pauses_long, total_speech_long = silence_features(seg_limits_long, dur)
+    silence_features_long, number_of_pauses_long, total_speech_long = \
+        silence_features(seg_limits_long, dur)
 
 
     # B. segment model-based features
     # Load classifier:
     dictionaries = []
     for filename in os.listdir(models_directory):
-        if not (filename.endswith("MEANS")) and not (filename.endswith(".arff")):
+        if not (filename.endswith("MEANS")) \
+                and not (filename.endswith(".arff")):
             model_path = os.path.join(models_directory, filename)
-            dictionary = predict_audio_labels(input_file, model_path)
+            dictionary = predict_audio_labels(input_file, model_path)[0]
             dictionaries.append(dictionary)
-
-    # TODO: This should be generalized as an aggregation of posteriors of the segment classifiers
 
     # list of features and feature names
     feature_names = ["Average silence duration short (sec)",
@@ -101,7 +111,6 @@ def audio_based_feature_extraction(input_file,models_directory):
     for i in range(len(silence_features_short)):
         features.append(silence_features_short[i])
         features.append(silence_features_long[i])
-
     for dictionary in dictionaries:
         for label in dictionary:
             feature_string = label + "(%)"
@@ -115,7 +124,7 @@ def audio_based_feature_extraction(input_file,models_directory):
         "Total speech duration short (sec)" : total_speech_short,
         "Total speech duration long (sec)"  : total_speech_long
     }
-    return features,feature_names,metadata
+    return features, feature_names, metadata
 
 
 
@@ -139,9 +148,12 @@ if __name__ == '__main__':
     parser.add_argument("-i", "--input", required=True,
                         help="the path of audio file" )
     parser.add_argument("-c", "--classifiers_path", required=True,
-                        help="the directory which contains all trained classifiers (models' files + MEANS files)")
+                        help="the directory which contains all "
+                             "trained classifiers "
+                             "(models' files + MEANS files)")
     args = parser.parse_args()
-    features,feature_names,metadata = audio_based_feature_extraction(args.input, args.classifiers_path)
+    features, feature_names,metadata = \
+        audio_based_feature_extraction(args.input, args.classifiers_path)
     print("Features names:\n {}".format(feature_names))
     print("Features:\n {}".format(features))
     print("Metadata:\n {}".format(metadata))
