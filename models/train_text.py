@@ -174,7 +174,7 @@ def fast_text_and_svm(data, text_emb_model, out_model,
     a = np.unique(labels)
     df = pd.DataFrame(columns=['classes'])
     df['classes'] = a
-    class_file_name = out_model + "_classenames.csv"
+    class_file_name = out_model + "_classesnames.csv"
     df.to_csv(class_file_name, index=False)
     labels = labels.tolist()
 
