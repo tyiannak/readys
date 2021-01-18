@@ -52,7 +52,10 @@ def silence_features(segment_limits,dur):
     average_silence_dur = float("{:.2f}".format(average_silence_dur))
     silence_seg_per_minute = float("{:.2f}".format(number_of_pauses /
                                                    (dur / 60.0)))
-    word_rate_in_speech = len(segment_limits) / total_speech
+    if total_speech == 0:
+        word_rate_in_speech = 0
+    else:
+        word_rate_in_speech = len(segment_limits) / total_speech
     word_rate_in_speech = float("{:.2f}".format(word_rate_in_speech))
     silence_features = [average_silence_dur,
                         silence_seg_per_minute,
@@ -91,8 +94,9 @@ def audio_based_feature_extraction(input_file,models_directory):
     # Load classifier:
     dictionaries = []
     for filename in os.listdir(models_directory):
-        if not (filename.endswith("MEANS")) \
-                and not (filename.endswith(".arff")):
+        if not (filename.endswith("MEANS")) and \
+           not (filename.endswith(".arff")) and \
+           not (filename.endswith("_results")):
             model_path = os.path.join(models_directory, filename)
             dictionary = predict_audio_labels(input_file, model_path)[0]
             dictionaries.append(dictionary)
