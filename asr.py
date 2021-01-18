@@ -3,6 +3,7 @@ import os
 from google.cloud.speech_v1.gapic import enums
 from google.cloud import speech
 import audio_analysis
+#from pyAudioAnalysis import audioBasicIO
 
 MAX_FILE_DURATION = 30
 
@@ -18,7 +19,7 @@ def audio_to_asr_text(audio_path, google_credentials_file):
 
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials_file
     language_code = "en-US"
-#    language_code = "en-US"
+
     fs, dur = audio_analysis .get_wav_properties(audio_path)
 
     cur_pos = 0
@@ -26,6 +27,11 @@ def audio_to_asr_text(audio_path, google_credentials_file):
     data = ""
 
     number_of_words = 0
+
+    # stereo to mono
+    command1 = f"ffmpeg -i {audio_path} -ac 1 {audio_path}"
+    os.system(command1)
+
     while cur_pos < dur:
 
         encoding = enums.RecognitionConfig.AudioEncoding.LINEAR16
@@ -39,12 +45,14 @@ def audio_to_asr_text(audio_path, google_credentials_file):
         cur_end = cur_pos + MAX_FILE_DURATION
         if dur < cur_end:
             cur_end = dur
-
+            
         command = f"ffmpeg -i {audio_path} -ss {cur_pos} -to " \
                   f"{cur_end} temp.wav -loglevel panic -y"
         os.system(command)
         with io.open("temp.wav", "rb") as f:
             content = f.read()
+
+        #content = audioBasicIO.stereo_to_mono(content)
         audio = {"content": content}
 
         response = client.long_running_recognize(config,audio).result()
