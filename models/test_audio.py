@@ -23,7 +23,7 @@ def predict_audio_labels(audio_file, svm_model):
         dictionary[key] += 1
     for label in dictionary:
         dictionary[label] = (dictionary[label] * 100) / num_of_samples
-    return dictionary
+    return dictionary , labels
 
 
 if __name__ == '__main__':
