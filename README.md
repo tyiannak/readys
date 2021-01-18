@@ -6,9 +6,9 @@ A Speech Analytics Python Tool for Dyslexia Assessment
 In order to get text features from audio file (handcrafted features + classification features) run the below command in your terminal 
 ```
 python3 text_analysis.py -i wav_file -g google_credentials -c classifiers_path -p fasttext_pretrained_model -l embeddings_limit -s segmentation_threshold -m segmentation_method
-
 ```
 Where: 
+
 -wav_file : the path of audio file 
 -google_credentials : a json file which containes the google credentials for speech to text functionality 
 -classifiers_path : the directory which contains all trained classifiers (models' files + .csv classes_names files)
@@ -24,7 +24,6 @@ The feature_names , features and metadata will be printed.
 In order to get audio features from audio file (silence features + classification features) run the below command in your terminal 
 ```
 python3 audio_analysis.py -i wav_file -c classifiers_path
-
 ```
 Where: 
 -wav_file : the path of audio file 
