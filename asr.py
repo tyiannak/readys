@@ -29,7 +29,7 @@ def audio_to_asr_text(audio_path, google_credentials_file):
     number_of_words = 0
 
     # stereo to mono
-    command1 = f"ffmpeg -i {audio_path} -ac 1 {audio_path}"
+    command1 = f"ffmpeg -y -i {audio_path} -ac 1 {audio_path}"
     os.system(command1)
 
     while cur_pos < dur:
