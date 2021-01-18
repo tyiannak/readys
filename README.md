@@ -47,6 +47,9 @@ Where:
 - wav_file : the path of audio file 
 
 - classifiers_path : the directory which contains all trained classifiers 
-  (models' files + MEANS files) 
-
+  (models' files + MEANS files)  
+  
 The feature_names , features and metadata will be printed
+
+Note: See [models/readme](models/readme.md) for instructions how to train 
+audio and text models
