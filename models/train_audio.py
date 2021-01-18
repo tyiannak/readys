@@ -20,7 +20,7 @@ def train_svm(files_path, output_model):
     """
 
     dirs = [x[0] for x in os.walk(files_path)]
-    dirs = dirs[1:]
+    dirs = sorted(dirs[1:])
     extract_features_and_train(dirs,
                                SEGMENT_LENGTH, SEGMENT_STEP,
                                ST_WINDOW, ST_STEP,
