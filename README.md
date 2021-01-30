@@ -90,5 +90,5 @@ Where :
 - model_name: the name of recording level classifier to be used
 - model_type: the type of recording level classifier
 - google_credentials: the json file of google credentials
-- audio_models_directory: is the path of audio models (both models + MEANS files)
-- text_models_directory: is the path for text models (both models + .csv files of classes' names)
+- audio_models_directory (optional): is the path of audio models (both models + MEANS files)
+- text_models_directory (optional): is the path for text models (both models + .csv files of classes' names)
