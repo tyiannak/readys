@@ -52,4 +52,26 @@ Where:
 The feature_names , features and metadata will be printed
 
 Note: See [models/readme](models/readme.md) for instructions how to train 
-audio and text models
+audio and text models 
+
+
+# Training recording level classifiers 
+## Download training data 
+```
+https://drive.google.com/drive/folders/1M0t5hj6PtbgEjzrgfcukeC5-MuZ541vl
+```
+## Download trained models for testing 
+```
+https://drive.google.com/drive/folders/1_aR6MCOmE5Q7KmBrqeB6Msjv0xsdFtc5
+```
+## Train the recording level classifiers 
+```
+python3 train_recording_level_classifier.py -i "inputs_path" -f "feature_type" -ct "classifier_type" -mn "model_name" -g "google_credentials" -a "audio_models_directory" -t "text_models_directory" -r "reference_text" -s "segmentation_threshold" -m "method_of_segmentation" -tp "train_percentage"
+```
+Where "inputs_path" is the path which containes samples devided into classes' directories, "feature_type" is "fused" "audio" or "text" for feature extraction, "classifier_type" is "svm" "svm_rbf" "knn" "gradientboosting" "ransomforest" or "extratrees" for the model that will be trained, "model_name" is the name of the model that will be trained,"google_credentials" is json file for google credentials, "audio_models_directory" is the path of audio models (both models + MEANS files), "text_models_directory" is the path for text models (both models + .csv files of classes' names) , "reference_text" (optional) is None for no reference text or the directory where reference texts (txt filed) are devided into class folders,"segmentation_threshold" (optional) is  the duration or magnitude of every segment (for example: 2sec window or 2 words per segment), "method_of_segmentation" (optional) None,fixed_size_text or fixed_window,"train_percentage" (optional) the percentage of the dataset that will be uses as train set (0.9 default).
+
+## Test recording level
+```
+python3 test_recording_level.py -i "input_file" -mn "model_name" -mt "model_type" -g "google_credentials" -a "audio_models_directory" -t "text_models_directory"
+```
+Where "input_file" is the audio file to be classified, "model_name" the name of recording level classifier to be used, "model_type" the type of recording level classifier, "google_credentials" the json file of google credentials, "audio_models_directory" is the path of audio models (both models + MEANS files), "text_models_directory" is the path for text models (both models + .csv files of classes' names). 
