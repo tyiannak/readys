@@ -105,7 +105,7 @@ def extract_fast_text_features(transcriptions, text_emb_model,
     return total_features
 
 
-def train_svm(feature_matrix, labels, f_mean, f_std, out_model):
+def train_svm(feature_matrix, labels, f_mean, f_std, out_model,pretrained_path,embeddings_limit):
     """
     Train svm classifier from features and labels (X and y)
     :param feature_matrix: np array (n samples x 300 dimensions) , labels:
@@ -145,10 +145,12 @@ def train_svm(feature_matrix, labels, f_mean, f_std, out_model):
         cPickle.dump(clf_svc, fid)
         cPickle.dump(f_mean, fid)
         cPickle.dump(f_std, fid)
+        cPickle.dump(pretrained_path, fid)
+        cPickle.dump(embeddings_limit, fid)
     return
 
 
-def fast_text_and_svm(data, text_emb_model, out_model,
+def fast_text_and_svm(data, text_emb_model, out_model,pretrained_path,
                       embeddings_limit=None):
     """
 
@@ -188,7 +190,7 @@ def fast_text_and_svm(data, text_emb_model, out_model,
 
     # train svm classifier
     print("Training SVM classifier using GridSearchCV...")
-    train_svm(feature_matrix, labels, mean, std, out_model)
+    train_svm(feature_matrix, labels, mean, std, out_model,pretrained_path,embeddings_limit)
     print("Model saved with name:", out_model)
     print("Classes of this model saved with name:", class_file_name)
 
@@ -215,4 +217,4 @@ if __name__ == '__main__':
     text_embeddings = load_text_embeddings(args.pretrained,
                                            args.embeddings_limit)
     fast_text_and_svm(args.annotation, text_embeddings,
-                      args.outputmodelpath, args.embeddings_limit)
+                      args.outputmodelpath,args.pretrained, args.embeddings_limit)

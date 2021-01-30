@@ -23,7 +23,7 @@ def extract_features(data, fasttext_pretrained_model, embeddings_limit=None):
     return feature_matrix , num_of_samples
 
 
-def predict_text_labels(feature_matrix, num_of_samples, svm_model,
+def predict_text_labels(text_segmented, svm_model,
                         classes_file):
     """
     segment-level classification of text to classify into aggregated classes
@@ -41,6 +41,10 @@ def predict_text_labels(feature_matrix, num_of_samples, svm_model,
         classifier = cPickle.load(fid)
         mean = cPickle.load(fid)
         std = cPickle.load(fid)
+        embeddings =  cPickle.load(fid)
+        embeddings_limit =  cPickle.load(fid)
+    embeddings = load_text_embeddings(embeddings,embeddings_limit)
+    feature_matrix,num_of_samples = extract_features(text_segmented,embeddings,embeddings_limit)
     df = pd.read_csv(classes_file)
     classes = df['classes'].tolist()
     dictionary = {}
@@ -62,27 +66,15 @@ def predict_text_labels(feature_matrix, num_of_samples, svm_model,
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input",
-                        help="a string containing sentence(s)")
-    parser.add_argument("-p", "--pretrained",
-                        help="the path of fasttext pretrained model "
-                             "(.bin file)")
+                        help="a list of text segments")
     parser.add_argument("-c", "--classifier",
                         help="the path of the classifier")
     parser.add_argument("-n", "--names",
                         help="the path of csv file that contains the"
                               " name of classes of this specific model")
-    parser.add_argument('-l', '--embeddings_limit', required=False,
-                        default=None, type=int,
-                        help='Strategy to apply in transfer learning: 0 or 1.')
-
     args = parser.parse_args()
 
-    text_embed_model = load_text_embeddings(args.pretrained,
-                                            args.embeddings_limit)
-    feature_matrix , num_of_samples = extract_features(args.input,
-                                                       text_embed_model,
-                                                       args.embeddings_limit)
-    results = predict_text_labels(feature_matrix,num_of_samples,
+    results = predict_text_labels(args.input,
                                   args.classifier, args.names)
     print(results)
 

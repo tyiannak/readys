@@ -96,7 +96,7 @@ def text_segmentation(text,segmentation_threshold=None,method=None,asr_timestamp
             start_time_of_window += segmentation_threshold
     return text_segmented
 
-def text_features(model, text,models_directory,segmentation_threshold=None,method=None,asr_results=None,embeddings_limit=None):
+def text_features(text,models_directory,segmentation_threshold=None,method=None,asr_results=None):
     '''
     Features exported from models(classifiers)
     :param model: the fasttext pretrained model
@@ -135,13 +135,12 @@ def text_features(model, text,models_directory,segmentation_threshold=None,metho
     dictionaries = []
     text_segmented = text_segmentation(text, segmentation_threshold, method, asr_results)
     print(text_segmented)
-    feature_matrix , num_of_samples = extract_features(text_segmented,model,embeddings_limit)
     for filename in os.listdir(models_directory):
         if not (filename.endswith("_classesnames.csv")):
             model_path = os.path.join(models_directory, filename)
             classes_file_name = filename + "_classesnames.csv"
             classes_names_path = os.path.join(models_directory, classes_file_name)
-            dictionary , _ = predict_text_labels(feature_matrix,num_of_samples,model_path, classes_names_path)
+            dictionary , _ = predict_text_labels(text_segmented,model_path, classes_names_path)
             dictionaries.append(dictionary)
     for dictionary in dictionaries:
         for label in dictionary:
@@ -153,7 +152,7 @@ def text_features(model, text,models_directory,segmentation_threshold=None,metho
 
 
 def get_asr_features(input_file, google_credentials,
-                     models_directory,embedding_model, reference_text=None,embeddings_limit=None,segmentation_threshold=None,method=None):
+                     models_directory,reference_text=None,segmentation_threshold=None,method=None):
     """
     Extract text features from ASR results of a speech audio file
     :param input_file: path to the audio file
@@ -248,13 +247,11 @@ def get_asr_features(input_file, google_credentials,
     features.append(word_rate)
 
     # Pure-text-based features:
-    features_text, features_names_text = text_features(embedding_model,
-                                                       data,
+    features_text, features_names_text = text_features(data,
                                                        models_directory,
                                                        segmentation_threshold,
                                                        method,
-                                                       asr_results,
-                                                       embeddings_limit)
+                                                       asr_results)
 
     features += features_text
     feature_names += features_names_text

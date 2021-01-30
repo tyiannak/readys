@@ -1,15 +1,15 @@
-from text_analysis import get_asr_features
-from audio_analysis import audio_based_feature_extraction
 import os
 import numpy as np
 import glob
-from pyAudioAnalysis.audioTrainTest import write_train_data_arff,evaluate_classifier,normalize_features,train_svm,train_extra_trees,train_random_forest,train_knn,train_gradient_boosting,features_to_matrix,save_parameters
+from pyAudioAnalysis.audioTrainTest import write_train_data_arff,evaluate_classifier,normalize_features,train_svm,train_extra_trees,train_random_forest,train_knn,train_gradient_boosting,save_parameters,features_to_matrix
 import pickle as cPickle
-from text_analysis import load_text_embedding_model as load_tem
 import argparse
+from text_analysis import get_asr_features
+from text_analysis import load_text_embedding_model as load_tem
+from audio_analysis import audio_based_feature_extraction
 
 def recording_level_feature_extraction(input_file,features_type,google_credentials = None,audio_models_directory = None,text_models_directory = None,
-                                       embedding_model = None,reference_text=None,embeddings_limit=None,segmentation_threshold=None,method=None):
+                                       reference_text=None,segmentation_threshold=None,method=None):
     '''
     Extract features from single audio file (either audio or text or fused)
     :param input_file: wav file from which features will be extracted
@@ -20,13 +20,9 @@ def recording_level_feature_extraction(input_file,features_type,google_credentia
     :param google_credentials: the json file which contains google credentials (None if it is not needed)
     :param audio_models_directory: the directory of audio models
     :param text_models_directory: the directory of text models
-    :param embedding_model: the loaded embedding pretrained fast text model (None if we are not using it/ if we do audio feature extraction)
     :param reference_text:
          - None : if no reference text is used else:
          - string of reference text
-    :param embeddings_limit:
-         - None : if no limit is used else:
-         - (int) number of words we are going to load from embedding (fasttext pretrained) model
     :param segmentation_threshold: the duration or magnitude of every segment (for example: 2sec window or 2 words per segment)
     :param method:
         -None: the text will be segmented into sentences based on the punctuation that asr has found
@@ -37,8 +33,8 @@ def recording_level_feature_extraction(input_file,features_type,google_credentia
     if features_type == "fused" :
         audio_features, audio_features_names, _ = audio_based_feature_extraction(input_file,audio_models_directory)
         text_features, text_features_names, _ = get_asr_features(input_file, google_credentials,
-                                                                         text_models_directory,embedding_model, reference_text,
-                                                                         embeddings_limit,segmentation_threshold,method)
+                                                                 text_models_directory,reference_text,
+                                                                 segmentation_threshold,method)
 
         recording_level_features = audio_features + text_features
         features_names = audio_features_names + text_features_names
@@ -46,14 +42,13 @@ def recording_level_feature_extraction(input_file,features_type,google_credentia
         recording_level_features, features_names, _ = audio_based_feature_extraction(input_file,audio_models_directory)
     elif features_type == "text" :
         recording_level_features, features_names, _ = get_asr_features(input_file, google_credentials,
-                                                                 text_models_directory, embedding_model, reference_text,
-                                                                 embeddings_limit, segmentation_threshold, method)
+                                                                       text_models_directory, reference_text,
+                                                                       segmentation_threshold, method)
     return recording_level_features, features_names
 
 def train_recording_level_classifier(inputs_path,features_type,classifier_type, model_name,google_credentials = None,
-                                     audio_models_directory=None,text_models_directory=None,embedding_model=None,reference_text=None,
-                                     embeddings_limit=None,segmentation_threshold=None,
-                                     method=None,train_percentage=0.90):
+                                     audio_models_directory=None,text_models_directory=None,reference_text=None,
+                                     segmentation_threshold=None,method=None,train_percentage=0.90):
     '''
     Feature exraction for recording level classifier (either audio or text or fused) + train linear classifier.
     :param inputs_path: the directory where samples are devided into class folders
@@ -72,13 +67,9 @@ def train_recording_level_classifier(inputs_path,features_type,classifier_type, 
     :param google_credentials: the json file which contains google credentials (None if it is not needed)
     :param audio_models_directory: the directory of audio models
     :param text_models_directory: the directory of text models
-    :param embedding_model: the loaded embedding pretrained fast text model (None if we are not using it/ if we do audio feature extraction)
     :param reference_text:
         - None : if no reference text is used otherwise:
         - the directory where reference texts (txt filed) are devided into class folders
-    :param embeddings_limit:
-        - None : if no limit is used else:
-        - (int) number of words we are going to load from embedding (fasttext pretrained) model
     :param segmentation_threshold: the duration or magnitude of every segment (for example: 2sec window or 2 words per segment)
     :param method:
         -None: the text will be segmented into sentences based on the punctuation that asr has found
@@ -120,8 +111,8 @@ def train_recording_level_classifier(inputs_path,features_type,classifier_type, 
                 continue
             #feature extraction for every wav file
             file_features,file_features_names = recording_level_feature_extraction(file_path,features_type,google_credentials,audio_models_directory,
-                                                                                   text_models_directory,embedding_model,reference_text,
-                                                                                   embeddings_limit,segmentation_threshold,method)
+                                                                                   text_models_directory,reference_text,
+                                                                                   segmentation_threshold,method)
             file_features = np.array(file_features)
             if len(directory_features) == 0:
                 # append directory features (features of a specific class)
@@ -173,8 +164,6 @@ def train_recording_level_classifier(inputs_path,features_type,classifier_type, 
         classifier = train_svm(features_norm, best_param)
     elif classifier_type == "svm_rbf":
         classifier = train_svm(features_norm, best_param, kernel='rbf')
-    elif classifier_type == "knn":
-        classifier = train_knn(features_norm,best_param)
     elif classifier_type == "randomforest":
         classifier = train_random_forest(features_norm, best_param)
     elif classifier_type == "gradientboosting":
@@ -182,10 +171,21 @@ def train_recording_level_classifier(inputs_path,features_type,classifier_type, 
     elif classifier_type == "extratrees":
         classifier = train_extra_trees(features_norm, best_param)
 
-    with open(model_name, 'wb') as fid:
-        cPickle.dump(classifier, fid)
-    save_path = model_name + "MEANS"
-    save_parameters(save_path, mean, std, class_names,embedding_model,embeddings_limit,segmentation_threshold,method)
+    if classifier_type == "knn":
+        feature_matrix, labels = features_to_matrix(features_norm)
+        feature_matrix = feature_matrix.tolist()
+        labels = labels.tolist()
+        save_path = model_name
+        save_parameters(save_path, feature_matrix, labels, mean, std,
+                        class_names, best_param,features_type,segmentation_threshold,method)
+    elif classifier_type == "svm" or classifier_type == "svm_rbf" or \
+            classifier_type == "randomforest" or \
+            classifier_type == "gradientboosting" or \
+            classifier_type == "extratrees":
+        with open(model_name, 'wb') as fid:
+            cPickle.dump(classifier, fid)
+        save_path = model_name + "MEANS"
+        save_parameters(save_path, mean, std, class_names,features_type,segmentation_threshold,method)
     return
 
 if __name__ == '__main__':
@@ -204,12 +204,8 @@ if __name__ == '__main__':
                         help="the directory which contains all trained audio classifiers (models' files + MEANS files)")
     parser.add_argument("-t", "--text_models_path", required=False,default=None,
                         help="the directory which contains all trained text classifiers (models' files + .csv classes_names files)")
-    parser.add_argument("-emb", "--embedding_model_path",required=False,default=None,
-                        help="the fast text pretrained model path")
     parser.add_argument('-r', '--reference_text', required=False, default=None,
                         help='None for no reference text or path which contains reference texts devided into class directories')
-    parser.add_argument('-l', '--embeddings_limit', required=False, default=None, type=int,
-                        help='Strategy to apply in transfer learning: 0 or 1.')
     parser.add_argument('-s', '--segmentation_threshold', required=False, default=None, type=int,
                         help='number of words or seconds of every text segment')
     parser.add_argument('-m', '--method_of_segmentation', required=False, default=None,
@@ -218,20 +214,13 @@ if __name__ == '__main__':
                         help = "the percentage of the dataset that will be used as train set")
     args = parser.parse_args()
 
-    if args.fusion == "fused" and (args.audio_models_path == None or args.text_models_path == None or args.embedding_model_path == None or args.google_credentials == None):
+    if args.fusion == "fused" and (args.audio_models_path == None or args.text_models_path == None or args.google_credentials == None):
         print("Error, you need to input both audio models directory and text models directory as well as embedding model path and google credentials for fused feature extraction")
     elif args.fusion == "audio" and args.audio_models_path == None :
         print("Error, you need to input audio models directory for audio feature extraction ")
-    elif args.fusion == "text" and (args.text_models_path == None or args.embedding_model_path == None or args.google_credentials == None):
+    elif args.fusion == "text" and (args.text_models_path == None or args.google_credentials == None):
         print("Error, you need to input text models directory as well as embedding model path and google credentials for text feature extraction")
-    elif args.fusion == "text" or args.fusion == "fused":
-        embeddings_model = load_tem(args.embedding_model_path,args.embeddings_limit)
+    else:
         train_recording_level_classifier(args.input,args.fusion,args.classifier_type,args.model_name,args.google_credentials,args.audio_models_path,
-                                         args.text_models_path,embeddings_model,args.reference_text,args.embeddings_limit,
+                                         args.text_models_path,args.reference_text,
                                          args.segmentation_threshold,args.method_of_segmentation,args.train_percentage)
-    elif args.fusion == "audio":
-        train_recording_level_classifier(args.input, args.fusion,args.classifier_type,
-                                         args.model_name,args.google_credentials, args.audio_models_path,
-                                         args.text_models_path, args.embedding_model_path, args.reference_text,
-                                         args.embeddings_limit,
-                                         args.segmentation_threshold, args.method_of_segmentation,args.train_percentage)
