@@ -16,7 +16,9 @@ https://drive.google.com/drive/folders/1_aR6MCOmE5Q7KmBrqeB6Msjv0xsdFtc5
 ```
 python3 train_text.py -a "input" -p "wiki.en.bin" -o "svm_output_classifier_path"
 ```
-Where input is input data in csv format with one column "transcriptions" and one column "labels".
+Where:
+- input: is input data in csv format with one column "transcriptions" and one column "labels"
+- wiki.en.bin: is the pretrained fasttext model
 The output classifier will be saved at the defined "svm_output_classifier_path". 
 
 
@@ -24,7 +26,11 @@ The output classifier will be saved at the defined "svm_output_classifier_path".
 ```
 python3 test_text.py -i "input_string" -p "wiki.en.bin" -c "svm_classifier_path" -n "classes_names" 
 ```
-Where "input_string" is the input text that we want to classify , "wiki.en.bin" is the path of the pretrained fasttext model , "svm_classifier_path" is the path of the classifier we trained, "classes_names" is a csv file with the names of the classes(saved automatically when trained). 
+Where:
+- input_string: is the input text that we want to classify 
+- wiki.en.bin: is the path of the pretrained fasttext model 
+- svm_classifier_path: is the path of the classifier we trained
+- classes_names: is a csv file with the names of the classes(saved automatically when trained) 
 
 
 # Training audio classifiers 
@@ -40,10 +46,15 @@ https://drive.google.com/drive/folders/1_aR6MCOmE5Q7KmBrqeB6Msjv0xsdFtc5
 ```
 python3 train_audio.py -i "input_path" -o "svm_output_classifier_path" 
 ```
-Where "input_path" is the path of the directory which contains audio organized in folders of classes, "svm_output_classifier_path" the path to which model will be saved.
+Where:
+- input_path: is the path of the directory which contains audio organized in folders of classes
+- svm_output_classifier_path: the path to which model will be saved
 
 
 ## Test audio 
 ```
 python3 test_audio.py -i "input_wav" -c "svm_classifier_path"
 ```
+Where: 
+- input_wav: the input audio file 
+- svm_classifier_path : the classifier that will be used to test 
