@@ -9,6 +9,13 @@ import pandas as pd
 import num2words
 from collections import Counter
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.feature_selection import VarianceThreshold
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RepeatedStratifiedKFold
+from imblearn.pipeline import Pipeline
+from sklearn.decomposition import PCA
+from imblearn.combine import SMOTETomek
 
 
 def text_preprocess(document):
@@ -62,6 +69,16 @@ def load_dataset(data, class_file_name, hop_samples=None):
     labels = labels.tolist()
 
     return transcriptions, labels, classnames
+
+
+def folders_mapping(folders):
+    """Return a mapping from folder to class and a mapping from class to folder."""
+    folder2idx = {}
+    idx2folder = {}
+    for idx, folder in enumerate(folders):
+        folder2idx[folder] = idx
+        idx2folder[idx] = folder
+    return folder2idx, idx2folder
 
 
 def convert_to_fasttext_data(labels, transcriptions, filename):
@@ -146,11 +163,31 @@ def save_model(model_dict, out_model=None, name=None, is_text=True):
         pickle.dump(model_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-def folders_mapping(folders):
-    """Return a mapping from folder to class and a mapping from class to folder."""
-    folder2idx = {}
-    idx2folder = {}
-    for idx, folder in enumerate(folders):
-        folder2idx[folder] = idx
-        idx2folder[idx] = folder
-    return folder2idx, idx2folder
+def grid_init(clf, clf_name, parameters_dict, is_imbalanced, seed=None):
+
+    if is_imbalanced:
+        print('--> The dataset is imbalanced. Applying  SMOTETomek to balance the classes')
+        sampler = SMOTETomek(random_state=seed, n_jobs=-1)
+
+    scaler = StandardScaler()
+
+    thresholder = VarianceThreshold(threshold=0)
+
+    pca = PCA()
+    if is_imbalanced:
+        pipe = Pipeline(steps=[('sampling', sampler), ('scaler', scaler), ('thresholder', thresholder),
+                               ('pca', pca), (clf_name, clf)],
+                        memory='sklearn_tmp_memory')
+
+    else:
+        pipe = Pipeline(steps=[('scaler', scaler), ('thresholder', thresholder),
+                               ('pca', pca), (clf_name, clf)],
+                        memory='sklearn_tmp_memory')
+
+    cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3)
+
+    grid_clf = GridSearchCV(
+        pipe, parameters_dict, cv=cv,
+        scoring='f1_macro', n_jobs=-1)
+
+    return grid_clf
