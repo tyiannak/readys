@@ -1,7 +1,12 @@
 import numpy as np
+import os
+import glob2 as glob
 import fasttext
 from gensim.models import KeyedVectors
 from utils import text_preprocess
+from utils import folders_mapping
+from pyAudioAnalysis import MidTermFeatures as aF
+from pyAudioAnalysis import audioBasicIO as aIO
 
 
 class TextFeatureExtraction(object):
@@ -67,3 +72,110 @@ class TextFeatureExtraction(object):
     def sentence_features_list(self, docs):
         print("--> Extracting text features")
         return np.vstack([self.sentence_features(sent) for sent in docs])
+
+
+class AudioFeatureExtraction(object):
+    def __init__(self, basic_features_params):
+        """
+            Initializes a FeatureExtraction object by loading the fasttext
+            text representation model
+            :param word_model_path: path to the fasttext .bin file
+            :param embeddings_limit: limit of the number of embeddings.
+                If None, then the whole set of embeddings is loaded.
+        """
+        self.basic_features_params = basic_features_params
+
+    def fit(self):  # comply with scikit-learn transformer requirement
+        return self
+
+    def transform(self, folder):  # comply with scikit-learn transformer requirement
+        filenames = []
+        labels = []
+
+        folders = [x[0] for x in os.walk(folder)]
+
+        if folders:
+            for folder in input:
+                for f in glob.iglob(os.path.join(folder, '*.wav')):
+                    filenames.append(f)
+                    labels.append(folder)
+
+            folder2idx, idx2folder = folders_mapping(folders=input)
+            labels = list(map(lambda x: folder2idx[x], labels))
+            labels = np.asarray(labels)
+
+        else:
+            filenames = [input]
+        # Match filenames with labels
+        sequences_short_features, feature_names = \
+            self.extract_segment_features(filenames)
+
+        sequences_short_features_stats = []
+        for sequence in sequences_short_features:
+            mu = np.mean(sequence, axis=1)
+            sequences_short_features_stats.append(mu)
+
+        sequences_short_features_stats = np.asarray(sequences_short_features_stats)
+
+        return sequences_short_features_stats, labels
+
+    def read_files(self, filenames):
+        """Read file using pyAudioAnalysis"""
+
+        # Consider same sampling frequencies
+        sequences = []
+        for file in filenames:
+            fs, samples = aIO.read_audio_file(file)
+            sequences.append(samples)
+
+        sequences = np.asarray(sequences)
+
+        return sequences, fs
+
+    def extract_segment_features(self, filenames):
+        """
+        Extract segment features using pyAudioAnalysis
+
+        Parameters
+        ----------
+
+        filenames :
+            List of input audio filenames
+
+        basic_features_params:
+            Dictionary of parameters to consider.
+            It must contain:
+                - mid_window: window size for framing
+                - mid_step: window step for framing
+                - short_window: segment window size
+                - short_step: segment window step
+
+        Returns
+        -------
+
+        segment_features_all:
+            List of stats on segment features
+        feature_names:
+            List of feature names
+
+        """
+        segment_features_all = []
+
+        sequences, sampling_rate = self.read_files(filenames)
+
+        mid_window = self.basic_features_params['mid_window']
+        mid_step = self.basic_features_params['mid_step']
+        short_window = self.basic_features_params['short_window']
+        short_step = self.basic_features_params['short_step']
+
+        for seq in sequences:
+            (segment_features_stats, segment_features,
+             feature_names) = aF.mid_feature_extraction(
+                seq, sampling_rate, round(mid_window * sampling_rate),
+                round(mid_step * sampling_rate),
+                round(sampling_rate * short_window),
+                round(sampling_rate * short_step))
+            segment_features_stats = np.asarray(segment_features_stats)
+            segment_features_all.append(segment_features_stats)
+
+        return segment_features_all, feature_names

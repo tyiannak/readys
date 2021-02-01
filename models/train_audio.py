@@ -1,13 +1,19 @@
-from pyAudioAnalysis.audioTrainTest import extract_features_and_train
 import os
 import argparse
+import yaml
+import numpy as np
+from feature_extraction import AudioFeatureExtraction
 
-# TODO add these in a config file
-SEGMENT_LENGTH = 3
-SEGMENT_STEP = 3
-ST_WINDOW = 0.05
-ST_STEP = 0.05
-AUDIO_SEGMENT_CLASSIFIER_TYPE = "svm_rbf"
+
+script_dir = os.path.dirname(__file__)
+eps = np.finfo(float).eps
+seed = 500
+if not script_dir:
+    with open(r'./config.yaml') as file:
+        config = yaml.load(file, Loader=yaml.FullLoader)
+else:
+    with open(script_dir + '/config.yaml') as file:
+        config = yaml.load(file, Loader=yaml.FullLoader)
 
 
 def train_svm(files_path, output_model):
@@ -18,24 +24,24 @@ def train_svm(files_path, output_model):
     :param output_model: path to save the output model
     :return: the name of the saved model
     """
+    config = config['audio_classifier']
+    feature_extractor = AudioFeatureExtraction(config)
+    #dirs = [x[0] for x in os.walk(files_path)]
+    #dirs = sorted(dirs[1:])
 
-    dirs = [x[0] for x in os.walk(files_path)]
-    dirs = sorted(dirs[1:])
-    extract_features_and_train(dirs,
-                               SEGMENT_LENGTH, SEGMENT_STEP,
-                               ST_WINDOW, ST_STEP,
-                               AUDIO_SEGMENT_CLASSIFIER_TYPE,
-                               output_model)
     return
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input", required=True,
+    parser.add_argument("-i", "--input_folder", required=True,
                         help="the path of directory which "
                              "contains audio organized "
                              "in folders of classes")
     parser.add_argument("-o", "--outputmodelpath", required=True,
                         help="path to the final svm model to be saved")
     args = parser.parse_args()
-    train_svm(args.input, args.outputmodelpath)
+    if os.path.exists(args.input_folder) is False:
+        raise FileNotFoundError()
+
+    train_svm(args.input_folder, args.outputmodelpath)

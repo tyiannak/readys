@@ -145,3 +145,13 @@ def save_model(model_dict, out_model=None, name=None, is_text=True):
     print(f"\nSaving model to: {out_path}\n")
     with open(out_path, 'wb') as handle:
         pickle.dump(model_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def folders_mapping(folders):
+    """Return a mapping from folder to class and a mapping from class to folder."""
+    folder2idx = {}
+    idx2folder = {}
+    for idx, folder in enumerate(folders):
+        folder2idx[folder] = idx
+        idx2folder[idx] = folder
+    return folder2idx, idx2folder

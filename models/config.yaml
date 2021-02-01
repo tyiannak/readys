@@ -2,6 +2,7 @@ text_classifier:
   svm: False
   xgboost: False
   fasttext: True
+  fasttext_vectors: 'wiki.en.vec'
   svm_parameters: { 'kernel': 'rbf',
                 'metric': 'f1_macro'
   }
@@ -22,5 +23,3 @@ audio_classifier:
     'short_step': 0.01
   }
   out_folder: "output_models/audio/"
-
-out_folder: "output_models/"

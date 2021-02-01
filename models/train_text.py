@@ -138,7 +138,7 @@ def basic_segment_classifier(data, feature_extractor, out_model):
         x_train_resambled, y_train_resambled = resampler.fit_resample(total_features, labels)
         _ = check_balance(y_train_resambled)
 
-        clf = train_basic_segment_classifier(x_train_resambled, y_train_resambled)
+        clf = train_basic_segment_classifier(x_train_resambled, y_train_resambled, is_imbalanced)
     else:
         clf = train_basic_segment_classifier(total_features, labels, is_imbalanced)
 
