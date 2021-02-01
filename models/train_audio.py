@@ -3,7 +3,7 @@ import argparse
 import yaml
 import numpy as np
 from feature_extraction import AudioFeatureExtraction
-from utils import save_model
+from utils import save_model, check_balance, train_basic_segment_classifier
 
 
 script_dir = os.path.dirname(__file__)
@@ -17,7 +17,7 @@ else:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
 
-def train_svm(dir, out_model):
+def basic_segment_classifier(dir, out_model):
     """
     Train audio models
     :param files_path: directory which contains
@@ -33,17 +33,24 @@ def train_svm(dir, out_model):
         with open(script_dir + '/config.yaml') as file:
             config = yaml.load(file, Loader=yaml.FullLoader)
 
+    basic_features_params = config['basic_features_params']
     config = config['audio_classifier']
-    feature_extractor = AudioFeatureExtraction(config['basic_features_params'])
-    features = feature_extractor.transform(dir)
-    #dirs = [x[0] for x in os.walk(files_path)]
-    #dirs = sorted(dirs[1:])
+    feature_extractor = AudioFeatureExtraction(basic_features_params)
+    features, labels = feature_extractor.transform(dir)
+
+    is_imbalanced = check_balance(labels)
+    clf = train_basic_segment_classifier(features, labels, is_imbalanced, config, seed)
+
+    model_dict = {}
+    model_dict['classifier_type'] = 'basic'
+    model_dict['classifier'] = clf
+    model_dict['basic_features_params'] = basic_features_params
+
     if out_model is None:
         save_model(model_dict, name="basic_classifier")
     else:
         save_model(model_dict, out_model=out_model)
-
-    return
+    return None
 
 
 if __name__ == '__main__':

@@ -195,7 +195,7 @@ def grid_init(clf, clf_name, parameters_dict, is_imbalanced, seed=None):
     return grid_clf
 
 
-def train_basic_segment_classifier(feature_matrix, labels, is_imbalanced, config):
+def train_basic_segment_classifier(feature_matrix, labels, is_imbalanced, config, seed=None):
     """
     Train svm classifier from features and labels (X and y)
     :param feature_matrix: np array (n samples x 300 dimensions) , labels:

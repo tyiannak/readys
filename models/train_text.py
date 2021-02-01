@@ -45,7 +45,7 @@ def basic_segment_classifier(data, feature_extractor, out_model):
 
     total_features = feature_extractor.transform(transcriptions)
 
-    clf = train_basic_segment_classifier(total_features, labels, is_imbalanced, config)
+    clf = train_basic_segment_classifier(total_features, labels, is_imbalanced, config, seed)
 
     model_dict = {}
     model_dict['classifier_type'] = 'basic'
