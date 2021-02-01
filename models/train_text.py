@@ -1,5 +1,4 @@
 import os
-import pickle as cPickle
 import re
 import numpy as np
 import argparse
@@ -17,7 +16,8 @@ from imblearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 from imblearn.combine import SMOTETomek
 from xgboost import XGBClassifier
-from utils import TextFeatureExtraction, load_dataset, check_balance, convert_to_fasttext_data
+from feature_extraction import TextFeatureExtraction
+from utils import load_dataset, check_balance, convert_to_fasttext_data, save_model
 
 script_dir = os.path.dirname(__file__)
 eps = np.finfo(float).eps
@@ -30,7 +30,27 @@ else:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
 
-def train_svm(feature_matrix, labels):
+def grid_init(clf, clf_name, parameters_dict):
+    scaler = StandardScaler()
+
+    thresholder = VarianceThreshold(threshold=0)
+
+    pca = PCA()
+
+    pipe = Pipeline(steps=[('scaler', scaler), ('thresholder', thresholder),
+                           ('pca', pca), (clf_name, clf)],
+                    memory='sklearn_tmp_memory')
+
+    cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3)
+
+    grid_clf = GridSearchCV(
+        pipe, parameters_dict, cv=cv,
+        scoring='f1_macro', n_jobs=-1)
+
+    return grid_clf
+
+
+def train_basic_classifier(feature_matrix, labels):
     """
     Train svm classifier from features and labels (X and y)
     :param feature_matrix: np array (n samples x 300 dimensions) , labels:
@@ -41,28 +61,29 @@ def train_svm(feature_matrix, labels):
     :return:
     """
 
-    clf = svm.SVC(kernel="rbf", class_weight='balanced')
-    svm_parameters = {'gamma': ['auto', 'scale'],
-                      'C': [1e-1, 1, 5, 1e1]}
-
-    scaler = StandardScaler()
-
-    thresholder = VarianceThreshold(threshold=0)
-
-    pca = PCA()
     n_components = [0.98, 0.99, 'mle', None]
 
-    pipe = Pipeline(steps=[('scaler', scaler), ('thresholder', thresholder),
-                           ('pca', pca), ('SVM', clf)],
-                    memory='sklearn_tmp_memory')
+    if config['text_classifier']['svm']:
+        print("--> Training SVM classifier using GridSearchCV")
+        clf = svm.SVC(kernel="rbf", class_weight='balanced')
+        svm_parameters = {'gamma': ['auto', 'scale'],
+                          'C': [1e-1, 1, 5, 1e1]}
 
-    cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3)
+        parameters_dict = dict(pca__n_components=n_components,
+                               SVM__gamma=svm_parameters['gamma'],
+                               SVM__C=svm_parameters['C'])
 
-    grid_clf = GridSearchCV(
-        pipe, dict(pca__n_components=n_components,
-                   SVM__gamma=svm_parameters['gamma'],
-                   SVM__C=svm_parameters['C']), cv=cv,
-        scoring='f1_macro', n_jobs=-1)
+        grid_clf = grid_init(clf, "SVM", parameters_dict)
+
+    elif config['text_classifier']['xgboost']:
+        print("--> Training XGBOOST classifier using GridSearchCV")
+        xgb = XGBClassifier(n_estimators=100)
+        parameters_dict = dict(pca__n_components=n_components)
+        grid_clf = grid_init(xgb, "XGBOOST", parameters_dict)
+
+    else:
+        print("The only supported basic classifiers are SVM and XGBOOST")
+        return -1
 
     grid_clf.fit(feature_matrix, labels)
 
@@ -74,14 +95,10 @@ def train_svm(feature_matrix, labels):
     print("--> Best validation score:      {:0.5f} (+/-{:0.5f})".format(clf_score,
                                                                     clf_stdev))
 
-    y_pred = clf_svc.predict(feature_matrix)
-
-    print("--> Confusion Matrix of training + validation sets: \n {}".format(confusion_matrix(labels, y_pred)))
-
     return clf_svc
 
 
-def fast_text_and_svm(data, feature_extractor, out_model):
+def basic_embedding_classifier(data, feature_extractor, out_model):
     """
 
     :param data: csv file with one column transcriptions (text samples)
@@ -99,7 +116,7 @@ def fast_text_and_svm(data, feature_extractor, out_model):
     class_file_name = out_model + "_classenames.csv"
 
     print('--> Loading Dataset...')
-    transcriptions, labels = load_dataset(data, class_file_name, config['text_classifier']['hop_samples'])
+    transcriptions, labels, classnames = load_dataset(data, class_file_name, config['text_classifier']['hop_samples'])
 
     is_imbalanced = check_balance(labels)
 
@@ -113,122 +130,19 @@ def fast_text_and_svm(data, feature_extractor, out_model):
         x_train_resambled, y_train_resambled = resampler.fit_resample(total_features, labels)
         _ = check_balance(y_train_resambled)
 
-        print("--> Training SVM classifier using GridSearchCV")
-        clf = train_svm(x_train_resambled, y_train_resambled)
+        clf = train_basic_classifier(x_train_resambled, y_train_resambled)
     else:
-        print("--> Training SVM classifier using GridSearchCV")
-        clf = train_svm(transcriptions, labels)
+        clf = train_basic_classifier(total_features, labels)
 
-    with open(out_model, 'wb') as fid:
-        cPickle.dump(clf, fid)
-    print("Model saved with name:", out_model)
-    print("Classes of this model saved with name:", class_file_name)
-
-
-
-    clf = svm.SVC(kernel="rbf", class_weight='balanced')
-    svm_parameters = {'gamma': ['auto', 'scale'],
-                      'C': [1e-1, 1, 5, 1e1]}
-
-    scaler = StandardScaler()
-
-    thresholder = VarianceThreshold(threshold=0)
-
-    pca = PCA()
-    n_components = [0.98, 0.99, 'mle', None]
-
-    pipe = Pipeline(steps=[('scaler', scaler), ('thresholder', thresholder),
-                           ('pca', pca), ('SVM', clf)],
-                    memory='sklearn_tmp_memory')
-
-    cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3)
-
-    grid_clf = GridSearchCV(
-        pipe, dict(pca__n_components=n_components,
-                   SVM__gamma=svm_parameters['gamma'],
-                   SVM__C=svm_parameters['C']), cv=cv,
-        scoring='f1_macro', n_jobs=-1)
-
-    grid_clf.fit(feature_matrix, labels)
-
-    clf_svc = grid_clf.best_estimator_
-    clf_params = grid_clf.best_params_
-    clf_score = grid_clf.best_score_
-    clf_stdev = grid_clf.cv_results_['std_test_score'][grid_clf.best_index_]
-    print("--> Parameters of best svm model: {}".format(clf_params))
-    print("--> Best validation score:      {:0.5f} (+/-{:0.5f})".format(clf_score,
-                                                                    clf_stdev))
-
-    y_pred = clf_svc.predict(feature_matrix)
-
-    print("--> Confusion Matrix of training + validation sets: \n {}".format(confusion_matrix(labels, y_pred)))
-
-    return clf_svc
-
-
-def ela2(feature_matrix, labels):
-
-    xgb = XGBClassifier(n_estimators=100)
-    scaler = StandardScaler()
-
-    thresholder = VarianceThreshold(threshold=0)
-
-    pca = PCA()
-    n_components = [0.98, 0.99, 'mle', None]
-
-    pipe = Pipeline(steps=[('scaler', scaler), ('thresholder', thresholder),
-                           ('pca', pca), ('XGB', xgb)],
-                    memory='sklearn_tmp_memory')
-
-    cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3)
-
-    grid_clf = GridSearchCV(
-        pipe, dict(pca__n_components=n_components), cv=cv,
-        scoring='f1_macro', n_jobs=-1)
-
-    grid_clf.fit(feature_matrix, labels)
-
-    clf_svc = grid_clf.best_estimator_
-    clf_params = grid_clf.best_params_
-    clf_score = grid_clf.best_score_
-    clf_stdev = grid_clf.cv_results_['std_test_score'][grid_clf.best_index_]
-    print("--> Parameters of best svm model: {}".format(clf_params))
-    print("--> Best validation score:      {:0.5f} (+/-{:0.5f})".format(clf_score,
-                                                                    clf_stdev))
-
-    y_pred = clf_svc.predict(feature_matrix)
-
-    print("--> Confusion Matrix of training + validation sets: \n {}".format(confusion_matrix(labels, y_pred)))
-
-    return clf_svc
-
-
-def ela(data, feature_extractor, out_model):
-
-    np.random.seed(seed)
-
-    class_file_name = out_model + "_classenames.csv"
-
-    print('--> Loading Dataset...')
-    transcriptions, labels = load_dataset(data, class_file_name, config['text_classifier']['hop_samples'])
-
-    is_imbalanced = check_balance(labels)
-
-    # extract features based on pretrained fasttext model
-
-    total_features = feature_extractor.transform(transcriptions)
-
-    if is_imbalanced:
-        print('--> The dataset is imbalanced. Applying  SMOTETomek to balance the classes')
-        resampler = SMOTETomek(random_state=seed, n_jobs=-1)
-        x_train_resambled, y_train_resambled = resampler.fit_resample(total_features, labels)
-        _ = check_balance(y_train_resambled)
-
-        print("--> Training XGBOOST classifier using GridSearchCV")
-        clf = ela2(x_train_resambled, y_train_resambled)
+    model_dict = config
+    model_dict['classifier'] = clf
+    model_dict['classifier_classnames'] = classnames
+    if out_model is None:
+        save_model(model_dict, name="basic_classifier")
     else:
-        print("--> Training XGBOOST classifier using GridSearchCV")
-        clf = ela2(transcriptions, labels)
+        save_model(model_dict, out_model=out_model)
+
+    return None
 
 
 def train_fastext_model(data, embeddings_limit, out_model):
@@ -242,7 +156,7 @@ def train_fastext_model(data, embeddings_limit, out_model):
                                                    limit=embeddings_limit)
     word_model.save_word2vec_format('my.vec')
     print('--> Loading Dataset...')
-    transcriptions, labels = load_dataset(data, class_file_name, config['text_classifier']['hop_samples'])
+    transcriptions, labels, classnames = load_dataset(data, class_file_name, config['text_classifier']['hop_samples'])
 
     convert_to_fasttext_data(labels, transcriptions, 'train.txt')
 
@@ -251,7 +165,17 @@ def train_fastext_model(data, embeddings_limit, out_model):
                                       wordNgrams=2, verbose=2, minCount=1,
                                       loss="hs", dim=300, pretrainedVectors='my.vec', seed=seed)
 
-    model.save_model("fasttext_classifier.ftz")
+    #model.save_model("fasttext_classifier.ftz")
+    model_dict = config
+    model_dict['classifier'] = clf
+    model_dict['classifier_classnames'] = classnames
+
+    if out_model is None:
+        save_model(model_dict, name="FASTTEXT")
+    else:
+        save_model(model_dict, out_model=out_model)
+
+    return None
 
 
 if __name__ == '__main__':
@@ -275,15 +199,10 @@ if __name__ == '__main__':
     if config['text_classifier']['fasttext']:
         train_fastext_model(args.annotation, args.embeddings_limit, args.outputmodelpath)
 
-    elif config['text_classifier']['svm']:
+    elif config['text_classifier']['svm'] or config['text_classifier']['xgboost']:
         feature_extractor = TextFeatureExtraction(args.pretrained,
                                                   args.embeddings_limit)
-        fast_text_and_svm(args.annotation, feature_extractor,
-                          args.outputmodelpath)
-    elif config['text_classifier']['xgboost']:
-        feature_extractor = TextFeatureExtraction(args.pretrained,
-                                                  args.embeddings_limit)
-        ela(args.annotation, feature_extractor,
+        basic_embedding_classifier(args.annotation, feature_extractor,
                           args.outputmodelpath)
     else:
         print('SVM and fasttext are the only supported classifiers.')

@@ -1,9 +1,11 @@
 import re
 import csv
+import os
+import pickle
+import time
+import yaml
 import numpy as np
 import pandas as pd
-import fasttext
-from gensim.models import KeyedVectors
 import num2words
 from collections import Counter
 from sklearn.model_selection import train_test_split
@@ -48,7 +50,6 @@ def text_preprocess(document):
 
 
 def load_dataset(data, class_file_name, hop_samples=None):
-    # load our samples
     df = pd.read_csv(data)
     transcriptions = df['transcriptions'].tolist()
     docs = []
@@ -59,13 +60,10 @@ def load_dataset(data, class_file_name, hop_samples=None):
     if hop_samples:
         docs = docs[::hop_samples]
         labels = labels[::hop_samples]
-    a = np.unique(labels)
-    df = pd.DataFrame(columns=['classes'])
-    df['classes'] = a
-    df.to_csv(class_file_name, index=False)
+    classnames = np.unique(labels)
     labels = labels.tolist()
 
-    return docs, labels
+    return docs, labels, classnames
 
 
 def convert_to_fasttext_data(labels, transcriptions, filename):
@@ -112,69 +110,36 @@ def split_data(x, y, test_size=0.2, fasttext_data=False, seed=None):
         return x_train, x_test, y_train, y_test
 
 
-class TextFeatureExtraction(object):
-    def __init__(self, word_model_path, embeddings_limit=None):
-        """
-            Initializes a FeatureExtraction object by loading the fasttext
-            text representation model
-            :param word_model_path: path to the fasttext .bin file
-            :param embeddings_limit: limit of the number of embeddings.
-                If None, then the whole set of embeddings is loaded.
-        """
-        self.embeddings_limit = embeddings_limit
-        print("--> Loading the text embeddings model")
-        if embeddings_limit:
-            self.word_model = KeyedVectors.load_word2vec_format(word_model_path,
-                                                                limit=embeddings_limit)
-        else:
-            self.word_model = fasttext.load_model(word_model_path)
+def save_model(model_dict, out_model=None, name=None):
 
-    def fit(self):  # comply with scikit-learn transformer requirement
-        return self
+    script_dir = os.path.dirname(__file__)
+    if not script_dir:
+        with open(r'./config.yaml') as file:
+            config = yaml.load(file, Loader=yaml.FullLoader)
+    else:
+        with open(script_dir + '/config.yaml') as file:
+            config = yaml.load(file, Loader=yaml.FullLoader)
 
-    def transform(self, docs):  # comply with scikit-learn transformer requirement
-        doc_word_vector = self.sentence_features_list(docs)
-        return doc_word_vector
+    out_folder = config["out_folder"]
+    if out_model is None:
+        timestamp = time.ctime()
+        out_model = "{}_{}.pt".format(name, timestamp)
+        out_model = out_model.replace(' ', '_')
+    else:
+        out_model = str(out_model)
+        if '.pt' not in out_model or '.pkl' not in out_model:
+            out_model = ''.join([out_model, '.pt'])
 
-    def sentence_features(self, sentence):
-        """
-           Given a sentence (example) extract a feature vector
-           based on fasttext pretrained model
+    if not script_dir:
+        if not os.path.exists(out_folder):
+            os.makedirs(out_folder)
+        out_path = os.path.join(out_folder, out_model)
+    else:
+        out_folder = os.path.join(script_dir, out_folder)
+        if not os.path.exists(out_folder):
+            os.makedirs(out_folder)
+        out_path = os.path.join(script_dir, out_folder, out_model)
 
-           :param transcriptions: list of samples-sentences ,
-           :param text_emb_model : path of fasttext pretrained
-           model (.vec file)
-           :return: fasttext_pretrained_model: numpy array (n x 300) -->
-                                               n samples(sentences) x 300
-                                               dimensions(features) normalized
-        """
-
-        features = []
-        for word in sentence.split():  # for every word in the sentence
-            # TODO: sum features instead of append to reduce complexity
-            if self.embeddings_limit:
-                try:
-                    result = self.word_model.similar_by_word(word)
-                    most_similar_key, similarity = result[0]
-                    feature = self.word_model[most_similar_key]
-                    features.append(feature)
-                except:
-                    continue
-            else:
-                feature = self.word_model[word]
-                features.append(feature)
-
-        # average the feature vectors for all the words in a sentence-sample
-        X = np.array(features)
-        # mu = np.mean(X, axis=0) + eps
-        # std = np.std(X, axis=0) + eps
-        mu = np.mean(X, axis=0)
-        # save one vector(300 dimensional) for every sample
-
-        return mu
-
-    def sentence_features_list(self, docs):
-        print("--> Extracting text features")
-        return np.vstack([self.sentence_features(sent) for sent in docs])
-
-
+    print(f"\nSaving model to: {out_path}\n")
+    with open(out_path, 'wb') as handle:
+        pickle.dump(model_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)

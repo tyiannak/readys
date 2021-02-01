@@ -5,7 +5,7 @@ text_classifier:
   svm_parameters: { 'kernel': 'rbf',
                 'metric': 'f1_macro'
   }
-  hop_samples: 2
+  hop_samples: 100
 
 basic_features_params:
   mid_window: 1
@@ -13,5 +13,4 @@ basic_features_params:
   short_window: 0.05
   short_step: 0.01
 
-
-
+out_folder: "output_models/"
