@@ -136,7 +136,7 @@ def save_model(model_dict, out_model=None, name=None):
         out_folder = os.path.join(script_dir, out_folder)
         if not os.path.exists(out_folder):
             os.makedirs(out_folder)
-        out_path = os.path.join(script_dir, out_folder, out_model)
+        out_path = os.path.join(out_folder, out_model)
 
     print(f"\nSaving model to: {out_path}\n")
     with open(out_path, 'wb') as handle:
