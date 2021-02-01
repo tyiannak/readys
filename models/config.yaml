@@ -6,11 +6,21 @@ text_classifier:
                 'metric': 'f1_macro'
   }
   hop_samples: 100
+  out_folder: "output_models/text/"
 
-basic_features_params:
-  mid_window: 1
-  mid_step: 1
-  short_window: 0.05
-  short_step: 0.01
+audio_classifier:
+  svm: True
+  xgboost: False
+  svm_parameters: { 'kernel': 'rbf',
+                'metric': 'f1_macro'
+
+  }
+  basic_features_params: {
+    'mid_window': 1,
+    'mid_step': 1,
+    'short_window': 0.05,
+    'short_step': 0.01
+  }
+  out_folder: "output_models/audio/"
 
 out_folder: "output_models/"

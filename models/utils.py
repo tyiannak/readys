@@ -108,7 +108,7 @@ def split_data(x, y, test_size=0.2, fasttext_data=False, seed=None):
         return x_train, x_test, y_train, y_test
 
 
-def save_model(model_dict, out_model=None, name=None):
+def save_model(model_dict, out_model=None, name=None, is_text=True):
 
     script_dir = os.path.dirname(__file__)
     if not script_dir:
@@ -119,6 +119,10 @@ def save_model(model_dict, out_model=None, name=None):
             config = yaml.load(file, Loader=yaml.FullLoader)
 
     out_folder = config["out_folder"]
+    if is_text:
+        out_folder = config["text_classifier"]["out_folder"]
+    else:
+        out_folder = config["audio_classifier"]["out_folder"]
     if out_model is None:
         timestamp = time.ctime()
         out_model = "{}_{}.pt".format(name, timestamp)
