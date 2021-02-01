@@ -13,6 +13,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn import svm
+from xgboost import XGBClassifier
 from imblearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 from imblearn.combine import SMOTETomek
@@ -191,3 +193,52 @@ def grid_init(clf, clf_name, parameters_dict, is_imbalanced, seed=None):
         scoring='f1_macro', n_jobs=-1)
 
     return grid_clf
+
+
+def train_basic_segment_classifier(feature_matrix, labels, is_imbalanced, config):
+    """
+    Train svm classifier from features and labels (X and y)
+    :param feature_matrix: np array (n samples x 300 dimensions) , labels:
+    :param labels: list of labels of examples
+    :param f_mean: mean feature vector (used for scaling)
+    :param f_std: std feature vector (used for scaling)
+    :param out_model: name of the svm model to save
+    :return:
+    """
+
+    n_components = [0.98, 0.99, 'mle', None]
+
+    if config['text_classifier']['svm']:
+        print("--> Training SVM classifier using GridSearchCV")
+        clf = svm.SVC(kernel="rbf", class_weight='balanced')
+        svm_parameters = {'gamma': ['auto', 'scale'],
+                          'C': [1e-1, 1, 5, 1e1]}
+
+        parameters_dict = dict(pca__n_components=n_components,
+                               SVM__gamma=svm_parameters['gamma'],
+                               SVM__C=svm_parameters['C'])
+
+        grid_clf = grid_init(clf, "SVM", parameters_dict, is_imbalanced)
+
+    elif config['text_classifier']['xgboost']:
+        print("--> Training XGBOOST classifier using GridSearchCV")
+        xgb = XGBClassifier(n_estimators=100)
+        parameters_dict = dict(pca__n_components=n_components)
+        grid_clf = grid_init(xgb, "XGBOOST", parameters_dict,
+                             is_imbalanced, seed)
+
+    else:
+        print("The only supported basic classifiers are SVM and XGBOOST")
+        return -1
+
+    grid_clf.fit(feature_matrix, labels)
+
+    clf_svc = grid_clf.best_estimator_
+    clf_params = grid_clf.best_params_
+    clf_score = grid_clf.best_score_
+    clf_stdev = grid_clf.cv_results_['std_test_score'][grid_clf.best_index_]
+    print("--> Parameters of best svm model: {}".format(clf_params))
+    print("--> Best validation score:      {:0.5f} (+/-{:0.5f})".format(clf_score,
+                                                                    clf_stdev))
+
+    return clf_svc
