@@ -1,7 +1,7 @@
 text_classifier:
   svm: False
-  xgboost: True
-  fasttext: False
+  xgboost: False
+  fasttext: True
   svm_parameters: { 'kernel': 'rbf',
                 'metric': 'f1_macro'
   }

@@ -1,11 +1,11 @@
-from models.train_text import extract_fast_text_features
-from models.train_text import load_text_embeddings
+from feature_extraction import TextFeatureExtraction
 import argparse
-import pickle as cPickle
-import pandas as pd
+import fasttext
+import pickle
+from nltk.tokenize import sent_tokenize
 
 
-def extract_features(data, fasttext_pretrained_model, embeddings_limit=None):
+def extract_features(data, feature_extractor):
     """
     Extract features from text segments
     :param data: list of samples (text-segments)
@@ -16,15 +16,15 @@ def extract_features(data, fasttext_pretrained_model, embeddings_limit=None):
     -feature_matrix: features of all samples (n samples x m features)
     -num_of_samples: number of samples
     """
+    data = sent_tokenize(data)
     num_of_samples = len(data)
-    feature_matrix = extract_fast_text_features(
-        data, fasttext_pretrained_model,
-        embeddings_limit)
-    return feature_matrix , num_of_samples
+    feature_matrix = feature_extractor.transform(data)
+    if feature_matrix.shape[0] == 1:
+        feature_matrix.reshape(1, -1)
+    return feature_matrix, num_of_samples
 
 
-def predict_text_labels(feature_matrix, num_of_samples, svm_model,
-                        classes_file):
+def predict_text_labels(feature_matrix, num_of_samples, model):
     """
     segment-level classification of text to classify into aggregated classes
     :param feature_matrix: features of all samples (n samples x m features)
@@ -37,26 +37,33 @@ def predict_text_labels(feature_matrix, num_of_samples, svm_model,
     -predicted_labels : a list of predicted labels of all samples
     """
 
-    with open(svm_model, 'rb') as fid:
-        classifier = cPickle.load(fid)
-        mean = cPickle.load(fid)
-        std = cPickle.load(fid)
-    df = pd.read_csv(classes_file)
-    classes = df['classes'].tolist()
+    model_dict = pickle.load(open(model, 'rb'))
+    classifier = model_dict['classifier']
+    classes = model_dict['classifier_classnames']
     dictionary = {}
     predicted_labels = []
     for label in classes:
         dictionary[label] = 0
     for sample in feature_matrix: # for each sentence:
-        # predict
-        class_id = classifier.predict((sample - mean) / std)
+        sample = sample.reshape(1, -1)
+        class_id = classifier.predict(sample)
         label = class_id[0]
         predicted_labels.append(label)
         dictionary[label] += 1
     for label in dictionary:
         # TODO: Replace this aggregation by posterior-based aggregation
         dictionary[label] = (dictionary[label] * 100) / num_of_samples
-    return dictionary , predicted_labels
+    return dictionary, predicted_labels
+
+
+def fassttext_predict(data, model_dict):
+
+    data = sent_tokenize(data)
+
+    model_path = model_dict['fasttext_model']
+    model = fasttext.load_model(model_path)
+
+    return model.predict(data)
 
 
 if __name__ == '__main__':
@@ -68,22 +75,21 @@ if __name__ == '__main__':
                              "(.bin file)")
     parser.add_argument("-c", "--classifier",
                         help="the path of the classifier")
-    parser.add_argument("-n", "--names",
-                        help="the path of csv file that contains the"
-                              " name of classes of this specific model")
     parser.add_argument('-l', '--embeddings_limit', required=False,
                         default=None, type=int,
                         help='Strategy to apply in transfer learning: 0 or 1.')
 
     args = parser.parse_args()
-
-    text_embed_model = load_text_embeddings(args.pretrained,
-                                            args.embeddings_limit)
-    feature_matrix , num_of_samples = extract_features(args.input,
-                                                       text_embed_model,
-                                                       args.embeddings_limit)
-    results = predict_text_labels(feature_matrix,num_of_samples,
-                                  args.classifier, args.names)
+    model_dict = pickle.load(open(args.classifier, 'rb'))
+    if model_dict['text_classifier']['fasttext']:
+        results = fassttext_predict(args.input, model_dict)
+        print(results)
+    else:
+        feature_extractor = TextFeatureExtraction(args.pretrained,
+                                                  args.embeddings_limit)
+        feature_matrix, num_of_samples = extract_features(args.input, feature_extractor)
+        results = predict_text_labels(feature_matrix, num_of_samples,
+                                      args.classifier)
     print(results)
 
 

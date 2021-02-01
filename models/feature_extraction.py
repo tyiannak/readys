@@ -1,6 +1,7 @@
 import numpy as np
 import fasttext
 from gensim.models import KeyedVectors
+from utils import text_preprocess
 
 
 class TextFeatureExtraction(object):
@@ -41,6 +42,7 @@ class TextFeatureExtraction(object):
         """
 
         features = []
+        sentence = text_preprocess(sentence)
         for word in sentence.split():  # for every word in the sentence
             # TODO: sum features instead of append to reduce complexity
             if self.embeddings_limit:
@@ -57,8 +59,6 @@ class TextFeatureExtraction(object):
 
         # average the feature vectors for all the words in a sentence-sample
         X = np.array(features)
-        # mu = np.mean(X, axis=0) + eps
-        # std = np.std(X, axis=0) + eps
         mu = np.mean(X, axis=0)
         # save one vector(300 dimensional) for every sample
 

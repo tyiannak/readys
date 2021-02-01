@@ -52,18 +52,16 @@ def text_preprocess(document):
 def load_dataset(data, class_file_name, hop_samples=None):
     df = pd.read_csv(data)
     transcriptions = df['transcriptions'].tolist()
-    docs = []
-    for sentence in transcriptions:
-        docs.append(text_preprocess(sentence))
+
     labels = df['labels']
 
     if hop_samples:
-        docs = docs[::hop_samples]
+        transcriptions = transcriptions[::hop_samples]
         labels = labels[::hop_samples]
     classnames = np.unique(labels)
     labels = labels.tolist()
 
-    return docs, labels, classnames
+    return transcriptions, labels, classnames
 
 
 def convert_to_fasttext_data(labels, transcriptions, filename):

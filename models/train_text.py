@@ -1,6 +1,6 @@
 import os
-import re
 import numpy as np
+import time
 import argparse
 import yaml
 import fasttext
@@ -10,8 +10,6 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import RepeatedStratifiedKFold
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import classification_report
 from imblearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 from imblearn.combine import SMOTETomek
@@ -30,16 +28,26 @@ else:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
 
-def grid_init(clf, clf_name, parameters_dict):
+def grid_init(clf, clf_name, parameters_dict, is_imbalanced):
+
+    if is_imbalanced:
+        print('--> The dataset is imbalanced. Applying  SMOTETomek to balance the classes')
+        sampler = SMOTETomek(random_state=seed, n_jobs=-1)
+
     scaler = StandardScaler()
 
     thresholder = VarianceThreshold(threshold=0)
 
     pca = PCA()
+    if is_imbalanced:
+        pipe = Pipeline(steps=[('sampling', sampler), ('scaler', scaler), ('thresholder', thresholder),
+                               ('pca', pca), (clf_name, clf)],
+                        memory='sklearn_tmp_memory')
 
-    pipe = Pipeline(steps=[('scaler', scaler), ('thresholder', thresholder),
-                           ('pca', pca), (clf_name, clf)],
-                    memory='sklearn_tmp_memory')
+    else:
+        pipe = Pipeline(steps=[('scaler', scaler), ('thresholder', thresholder),
+                               ('pca', pca), (clf_name, clf)],
+                        memory='sklearn_tmp_memory')
 
     cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3)
 
@@ -50,7 +58,7 @@ def grid_init(clf, clf_name, parameters_dict):
     return grid_clf
 
 
-def train_basic_classifier(feature_matrix, labels):
+def train_basic_classifier(feature_matrix, labels, is_imbalanced):
     """
     Train svm classifier from features and labels (X and y)
     :param feature_matrix: np array (n samples x 300 dimensions) , labels:
@@ -73,13 +81,13 @@ def train_basic_classifier(feature_matrix, labels):
                                SVM__gamma=svm_parameters['gamma'],
                                SVM__C=svm_parameters['C'])
 
-        grid_clf = grid_init(clf, "SVM", parameters_dict)
+        grid_clf = grid_init(clf, "SVM", parameters_dict, is_imbalanced)
 
     elif config['text_classifier']['xgboost']:
         print("--> Training XGBOOST classifier using GridSearchCV")
         xgb = XGBClassifier(n_estimators=100)
         parameters_dict = dict(pca__n_components=n_components)
-        grid_clf = grid_init(xgb, "XGBOOST", parameters_dict)
+        grid_clf = grid_init(xgb, "XGBOOST", parameters_dict, is_imbalanced)
 
     else:
         print("The only supported basic classifiers are SVM and XGBOOST")
@@ -132,7 +140,7 @@ def basic_embedding_classifier(data, feature_extractor, out_model):
 
         clf = train_basic_classifier(x_train_resambled, y_train_resambled)
     else:
-        clf = train_basic_classifier(total_features, labels)
+        clf = train_basic_classifier(total_features, labels, is_imbalanced)
 
     model_dict = config
     model_dict['classifier'] = clf
@@ -165,9 +173,21 @@ def train_fastext_model(data, embeddings_limit, out_model):
                                       wordNgrams=2, verbose=2, minCount=1,
                                       loss="hs", dim=300, pretrainedVectors='my.vec', seed=seed)
 
-    #model.save_model("fasttext_classifier.ftz")
+    timestamp = time.ctime()
+    name = "fasttext_classifier_{}.ftz".format(timestamp)
+    out_folder = config["out_folder"]
+    if not script_dir:
+        if not os.path.exists(out_folder):
+            os.makedirs(out_folder)
+        out_path = os.path.join(out_folder, name)
+    else:
+        if not os.path.exists(out_folder):
+            os.makedirs(out_folder)
+        out_path = os.path.join(script_dir, out_folder, name)
+
+    model.save_model(out_path)
     model_dict = config
-    model_dict['classifier'] = clf
+    model_dict['fasttext_model'] = out_path
     model_dict['classifier_classnames'] = classnames
 
     if out_model is None:
@@ -195,6 +215,9 @@ if __name__ == '__main__':
                         help='Strategy to apply in transfer learning: 0 or 1.')
 
     args = parser.parse_args()
+
+    config['embedding_model'] = args.pretrained
+    config['embeddings_limit'] = args.embeddings_limit
 
     if config['text_classifier']['fasttext']:
         train_fastext_model(args.annotation, args.embeddings_limit, args.outputmodelpath)
