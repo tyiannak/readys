@@ -48,6 +48,27 @@ def fassttext_predict(data, model_dict):
     return model.predict(data)
 
 
+def predict(data, classifier_path, pretrained):
+
+    model_dict = pickle.load(open(classifier_path, 'rb'))
+    data = sent_tokenize(data)
+    if model_dict['text_classifier']['fasttext']:
+        model_path = model_dict['fasttext_model']
+        model = fasttext.load_model(model_path)
+
+        preds = model.predict(data)
+    else:
+        model = model_dict['classifier']
+        embedding_model = model_dict['embedding_model']
+        embeddings_limit = model_dict['embeddings_limit']
+        feature_extractor = TextFeatureExtraction(pretrained,
+                                                  embeddings_limit)
+        feature_matrix = feature_extractor.transform(data)
+        preds = predict_text_labels(feature_matrix, model)
+
+    return preds
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input",
@@ -62,31 +83,8 @@ if __name__ == '__main__':
                         help='Strategy to apply in transfer learning: 0 or 1.')
 
     args = parser.parse_args()
-    model_dict = pickle.load(open(args.classifier, 'rb'))
-    if model_dict['text_classifier']['fasttext']:
-        results = fassttext_predict(args.input, model_dict)
-        print(results)
-    else:
-        feature_extractor = TextFeatureExtraction(args.pretrained,
-                                                  args.embeddings_limit)
-        feature_matrix = feature_extractor.transform(
-            sent_tokenize(args.input))
-        results = predict_text_labels(feature_matrix, args.classifier)
-    print(results)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    preds = predict(args.input, args.classifier, args.pretrained)
+    print(preds)
 
 
 
