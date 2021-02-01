@@ -142,9 +142,13 @@ def basic_segment_classifier(data, feature_extractor, out_model):
     else:
         clf = train_basic_segment_classifier(total_features, labels, is_imbalanced)
 
-    model_dict = config
+    model_dict = {}
+    model_dict['classifier_type'] = 'basic'
     model_dict['classifier'] = clf
     model_dict['classifier_classnames'] = classnames
+    model_dict['embedding_model'] = feature_extractor.embedding_model
+    model_dict['embeddings_limit'] = feature_extractor.embeddings_limit
+
     if out_model is None:
         save_model(model_dict, name="basic_classifier")
     else:
@@ -175,7 +179,7 @@ def train_fasttext_segment_classifier(data, embeddings_limit, out_model):
 
     timestamp = time.ctime()
     name = "fasttext_classifier_{}.ftz".format(timestamp)
-    out_folder = config["out_folder"]
+    out_folder = config['text_classifier']["out_folder"]
     if not script_dir:
         if not os.path.exists(out_folder):
             os.makedirs(out_folder)
@@ -187,7 +191,8 @@ def train_fasttext_segment_classifier(data, embeddings_limit, out_model):
         out_path = os.path.join(out_folder, name)
 
     model.save_model(out_path)
-    model_dict = config
+    model_dict = {}
+    model_dict['classifier_type'] = 'fasttext'
     model_dict['fasttext_model'] = out_path
     model_dict['classifier_classnames'] = classnames
 
@@ -216,9 +221,6 @@ if __name__ == '__main__':
                         help='Strategy to apply in transfer learning: 0 or 1.')
 
     args = parser.parse_args()
-
-    config['embedding_model'] = args.pretrained
-    config['embeddings_limit'] = args.embeddings_limit
 
     if config['text_classifier']['fasttext']:
         train_fasttext_segment_classifier(args.annotation, args.embeddings_limit, args.outputmodelpath)

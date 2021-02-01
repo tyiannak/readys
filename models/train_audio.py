@@ -3,6 +3,7 @@ import argparse
 import yaml
 import numpy as np
 from feature_extraction import AudioFeatureExtraction
+from utils import save_model
 
 
 script_dir = os.path.dirname(__file__)
@@ -16,7 +17,7 @@ else:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
 
-def train_svm(files_path, output_model):
+def train_svm(dir, out_model):
     """
     Train audio models
     :param files_path: directory which contains
@@ -24,10 +25,23 @@ def train_svm(files_path, output_model):
     :param output_model: path to save the output model
     :return: the name of the saved model
     """
+    script_dir = os.path.dirname(__file__)
+    if not script_dir:
+        with open(r'./config.yaml') as file:
+            config = yaml.load(file, Loader=yaml.FullLoader)
+    else:
+        with open(script_dir + '/config.yaml') as file:
+            config = yaml.load(file, Loader=yaml.FullLoader)
+
     config = config['audio_classifier']
-    feature_extractor = AudioFeatureExtraction(config)
+    feature_extractor = AudioFeatureExtraction(config['basic_features_params'])
+    features = feature_extractor.transform(dir)
     #dirs = [x[0] for x in os.walk(files_path)]
     #dirs = sorted(dirs[1:])
+    if out_model is None:
+        save_model(model_dict, name="basic_classifier")
+    else:
+        save_model(model_dict, out_model=out_model)
 
     return
 

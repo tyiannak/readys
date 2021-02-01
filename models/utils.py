@@ -118,7 +118,6 @@ def save_model(model_dict, out_model=None, name=None, is_text=True):
         with open(script_dir + '/config.yaml') as file:
             config = yaml.load(file, Loader=yaml.FullLoader)
 
-    out_folder = config["out_folder"]
     if is_text:
         out_folder = config["text_classifier"]["out_folder"]
     else:

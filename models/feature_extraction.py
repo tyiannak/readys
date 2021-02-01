@@ -19,6 +19,7 @@ class TextFeatureExtraction(object):
                 If None, then the whole set of embeddings is loaded.
         """
         self.embeddings_limit = embeddings_limit
+        self.embedding_model = word_model_path
         print("--> Loading the text embeddings model")
         if embeddings_limit:
             self.word_model = KeyedVectors.load_word2vec_format(word_model_path,
@@ -89,18 +90,20 @@ class AudioFeatureExtraction(object):
         return self
 
     def transform(self, folder):  # comply with scikit-learn transformer requirement
+
+        print("--> Extracting audio features")
         filenames = []
         labels = []
 
         folders = [x[0] for x in os.walk(folder)]
 
         if folders:
-            for folder in input:
+            for folder in folders:
                 for f in glob.iglob(os.path.join(folder, '*.wav')):
                     filenames.append(f)
                     labels.append(folder)
 
-            folder2idx, idx2folder = folders_mapping(folders=input)
+            folder2idx, idx2folder = folders_mapping(folders=folders)
             labels = list(map(lambda x: folder2idx[x], labels))
             labels = np.asarray(labels)
 
@@ -119,6 +122,7 @@ class AudioFeatureExtraction(object):
 
         return sequences_short_features_stats, labels
 
+    @staticmethod
     def read_files(self, filenames):
         """Read file using pyAudioAnalysis"""
 
