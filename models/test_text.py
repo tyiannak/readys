@@ -5,7 +5,7 @@ import pickle
 from nltk.tokenize import sent_tokenize
 
 
-def predict_text_labels(feature_matrix, model):
+def basic_segment_classifier_predict(feature_matrix, model):
     """
     segment-level classification of text to classify into aggregated classes
     :param feature_matrix: features of all samples (n samples x m features)
@@ -38,20 +38,11 @@ def predict_text_labels(feature_matrix, model):
     return dictionary, predicted_labels
 
 
-def fassttext_predict(data, model_dict):
-
-    data = sent_tokenize(data)
-
-    model_path = model_dict['fasttext_model']
-    model = fasttext.load_model(model_path)
-
-    return model.predict(data)
-
-
 def predict(data, classifier_path, pretrained):
 
     model_dict = pickle.load(open(classifier_path, 'rb'))
-    data = sent_tokenize(data)
+    if isinstance(data, str):
+        data = sent_tokenize(data)
     if model_dict['text_classifier']['fasttext']:
         model_path = model_dict['fasttext_model']
         model = fasttext.load_model(model_path)
@@ -59,12 +50,11 @@ def predict(data, classifier_path, pretrained):
         preds = model.predict(data)
     else:
         model = model_dict['classifier']
-        embedding_model = model_dict['embedding_model']
         embeddings_limit = model_dict['embeddings_limit']
         feature_extractor = TextFeatureExtraction(pretrained,
                                                   embeddings_limit)
         feature_matrix = feature_extractor.transform(data)
-        preds = predict_text_labels(feature_matrix, model)
+        preds = basic_segment_classifier_predict(feature_matrix, model)
 
     return preds
 
