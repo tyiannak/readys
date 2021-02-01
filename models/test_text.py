@@ -5,26 +5,7 @@ import pickle
 from nltk.tokenize import sent_tokenize
 
 
-def extract_features(data, feature_extractor):
-    """
-    Extract features from text segments
-    :param data: list of samples (text-segments)
-    :param fasttext_pretrained_model:  the fast text pretrained model loaded
-    :param embeddings_limit: embeddings_limit: limit of the number of embeddings
-        If None, then the whole set of embeddings is loaded.
-    :return:
-    -feature_matrix: features of all samples (n samples x m features)
-    -num_of_samples: number of samples
-    """
-    data = sent_tokenize(data)
-    num_of_samples = len(data)
-    feature_matrix = feature_extractor.transform(data)
-    if feature_matrix.shape[0] == 1:
-        feature_matrix.reshape(1, -1)
-    return feature_matrix, num_of_samples
-
-
-def predict_text_labels(feature_matrix, num_of_samples, model):
+def predict_text_labels(feature_matrix, model):
     """
     segment-level classification of text to classify into aggregated classes
     :param feature_matrix: features of all samples (n samples x m features)
@@ -37,6 +18,7 @@ def predict_text_labels(feature_matrix, num_of_samples, model):
     -predicted_labels : a list of predicted labels of all samples
     """
 
+    num_of_samples = feature_matrix.shape[0]
     model_dict = pickle.load(open(model, 'rb'))
     classifier = model_dict['classifier']
     classes = model_dict['classifier_classnames']
@@ -87,9 +69,9 @@ if __name__ == '__main__':
     else:
         feature_extractor = TextFeatureExtraction(args.pretrained,
                                                   args.embeddings_limit)
-        feature_matrix, num_of_samples = extract_features(args.input, feature_extractor)
-        results = predict_text_labels(feature_matrix, num_of_samples,
-                                      args.classifier)
+        feature_matrix = feature_extractor.transform(
+            sent_tokenize(args.input))
+        results = predict_text_labels(feature_matrix, args.classifier)
     print(results)
 
 
