@@ -41,9 +41,9 @@ def basic_segment_classifier(dir, out_model):
     model_dict['basic_features_params'] = basic_features_params
 
     if out_model is None:
-        save_model(model_dict, name="basic_classifier")
+        save_model(model_dict, name="basic_classifier", is_text=False)
     else:
-        save_model(model_dict, out_model=out_model)
+        save_model(model_dict, out_model=out_model, is_text=False)
     return None
 
 
