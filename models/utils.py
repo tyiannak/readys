@@ -22,7 +22,7 @@ from imblearn.combine import SMOTETomek
 
 def text_preprocess(document):
     """
-        Basic text preprocessing
+        Text preprocessing
         :param document: string containing input text
         :return: updated text
     """
@@ -58,7 +58,16 @@ def text_preprocess(document):
     return preprocessed_text
 
 
-def load_dataset(data, class_file_name, hop_samples=None):
+def load_text_dataset(data, hop_samples=None):
+    """
+    Loads a text dataset
+    :param data: csv file with one column transcriptions (text samples)
+                   and one column labels
+    :param hop_samples: number of samples to hop
+    :return: 1. transcriptions: list of text segments
+             2. labels: list of labels
+             3. classnames: the name of the classes
+    """
     df = pd.read_csv(data)
     transcriptions = df['transcriptions'].tolist()
 
@@ -84,6 +93,12 @@ def folders_mapping(folders):
 
 
 def convert_to_fasttext_data(labels, transcriptions, filename):
+    """
+    Converts data in the correct form to use in fasttext training.
+    :param labels: list of string labels written in the form __label__name
+    :param transcriptions: transcriptions: list of text segments
+    :param filename: file to save the output data
+    """
     data = [label + " " + trans for label, trans in zip(labels, transcriptions)]
     df = pd.DataFrame(data)
     df.to_csv(filename, index=False, sep=' ',
@@ -92,7 +107,11 @@ def convert_to_fasttext_data(labels, transcriptions, filename):
 
 
 def check_balance(labels):
-
+    """
+    Checks if a dataset is imbalanced
+    :param labels: list of labels
+    :return: True if imbalanced, False otherwise
+    """
     class_samples = Counter(labels)
     balanced_degrees = 1/len(class_samples)
     imbalanced_degrees = {}
@@ -101,7 +120,6 @@ def check_balance(labels):
     print('--> Dataset samples per class: \n    {}'.format(imbalanced_degrees))
 
     is_imbalanced = False
-    strategy = {}
     for label in imbalanced_degrees:
         if imbalanced_degrees[label] < 0.8 * balanced_degrees:
             is_imbalanced = True
@@ -111,6 +129,18 @@ def check_balance(labels):
 
 
 def split_data(x, y, test_size=0.2, fasttext_data=False, seed=None):
+    """
+    Split data to train and test in a stratified manner.
+    :param x: feature matrix
+    :param y: list of labels
+    :param test_size: percentage of the test set
+    :param fasttext_data: True if the data arre in the fasttext form
+    :param seed: seed
+    :return: 1. x_train: train feature matrix
+             2. x_test: test feature matrix
+             3. y_train: train labels
+             4. y_test: test labels
+    """
 
     if fasttext_data:
         x_train, x_test, y_train, y_test = train_test_split(x, y,
@@ -128,7 +158,14 @@ def split_data(x, y, test_size=0.2, fasttext_data=False, seed=None):
 
 
 def save_model(model_dict, out_model=None, name=None, is_text=True):
-
+    """
+    Saves a model dictionary
+    :param model_dict: model dictionary
+    :param out_model: path to save the model (optional)
+    :param name: name of the model (optional)
+    :param is_text: True if the model is a text classifier
+                    False if it is an audio classifier
+    """
     script_dir = os.path.dirname(__file__)
     if not script_dir:
         with open(r'./config.yaml') as file:
@@ -166,7 +203,24 @@ def save_model(model_dict, out_model=None, name=None, is_text=True):
 
 
 def grid_init(clf, clf_name, parameters_dict, is_imbalanced, seed=None):
-
+    """
+    Initializes a grid using:
+        1. a pipeline containing:
+            - a sampler if the dataset is imbalanced
+            - a scaler
+            - a variance threshold
+            - pca
+            - classifier
+        2. randomized stratified cross validation using RepeatedStratifiedKFold
+        3. dictionary of parameters to be optimized
+        4. GridSearchCV
+    :param clf: classifier
+    :param clf_name: classifier name
+    :param parameters_dict: dictionary of parameters to be optimized
+    :param is_imbalanced: True if the dataset is imbalanced, False otherwise
+    :param seed: seed
+    :return: initialized grid
+    """
     if is_imbalanced:
         print('--> The dataset is imbalanced. Applying  SMOTETomek to balance the classes')
         sampler = SMOTETomek(random_state=seed, n_jobs=-1)
@@ -197,13 +251,13 @@ def grid_init(clf, clf_name, parameters_dict, is_imbalanced, seed=None):
 
 def train_basic_segment_classifier(feature_matrix, labels, is_imbalanced, config, seed=None):
     """
-    Train svm classifier from features and labels (X and y)
-    :param feature_matrix: np array (n samples x 300 dimensions) , labels:
-    :param labels: list of labels of examples
-    :param f_mean: mean feature vector (used for scaling)
-    :param f_std: std feature vector (used for scaling)
-    :param out_model: name of the svm model to save
-    :return:
+    Trains basic (i.e. svm or xgboost) classifier pipeline
+    :param feature_matrix: feature matrix
+    :param labels: list of labels
+    :param is_imbalanced: True if the dataset is imbalanced, False otherwise
+    :param config: configuration file
+    :param seed: seed
+    :return: the trained pipeline
     """
 
     n_components = [0.98, 0.99, 'mle', None]

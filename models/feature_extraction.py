@@ -12,7 +12,7 @@ from pyAudioAnalysis import audioBasicIO as aIO
 class TextFeatureExtraction(object):
     def __init__(self, word_model_path, embeddings_limit=None):
         """
-            Initializes a FeatureExtraction object by loading the fasttext
+            Initializes a TextFeatureExtraction object by loading the fasttext
             text representation model
             :param word_model_path: path to the fasttext .bin file
             :param embeddings_limit: limit of the number of embeddings.
@@ -36,15 +36,11 @@ class TextFeatureExtraction(object):
 
     def sentence_features(self, sentence):
         """
-           Given a sentence (example) extract a feature vector
+           Given a segment (example) extracts a feature vector
            based on fasttext pretrained model
 
-           :param transcriptions: list of samples-sentences ,
-           :param text_emb_model : path of fasttext pretrained
-           model (.vec file)
-           :return: fasttext_pretrained_model: numpy array (n x 300) -->
-                                               n samples(sentences) x 300
-                                               dimensions(features) normalized
+           :param sentence: a segment
+           :return: mean feature vector of the segment's words
         """
 
         features = []
@@ -71,6 +67,12 @@ class TextFeatureExtraction(object):
         return mu
 
     def sentence_features_list(self, docs):
+        """
+        For each segment in docs, extracts the mean feature
+        vector of the segment's words
+        :param docs: list of segments
+        :return: feature matrix for the whole dataset
+        """
         print("--> Extracting text features")
         return np.vstack([self.sentence_features(sent) for sent in docs])
 
@@ -78,11 +80,9 @@ class TextFeatureExtraction(object):
 class AudioFeatureExtraction(object):
     def __init__(self, basic_features_params):
         """
-            Initializes a FeatureExtraction object by loading the fasttext
-            text representation model
-            :param word_model_path: path to the fasttext .bin file
-            :param embeddings_limit: limit of the number of embeddings.
-                If None, then the whole set of embeddings is loaded.
+            Initializes an AudioFeatureExtraction object by loading the
+            basic feature extraction parameters
+            :param basic_features_params: basic feature extraction parameters
         """
         self.basic_features_params = basic_features_params
 
@@ -90,7 +90,16 @@ class AudioFeatureExtraction(object):
         return self
 
     def transform(self, folder):  # comply with scikit-learn transformer requirement
-
+        """
+        Extract features on a dataset which lies under the folder directory
+        :param folder: the directory in which the dataset is located.
+                        Each subfolder of the folder must contain instances
+                        of a specific class.
+        :return: 1. sequences_short_features_stats:  stats on segment
+                        features for each dataset instance
+                 2. labels: list of labels
+                 3. idx2folder: a mapping from label numbers to label names
+        """
         print("--> Extracting audio features")
         filenames = []
         labels = []
@@ -124,7 +133,7 @@ class AudioFeatureExtraction(object):
 
     @staticmethod
     def read_files(filenames):
-        """Read file using pyAudioAnalysis"""
+        """Read audio file using pyAudioAnalysis"""
 
         # Consider same sampling frequencies
         sequences = []

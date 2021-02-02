@@ -7,15 +7,20 @@ from nltk.tokenize import sent_tokenize
 
 def basic_segment_classifier_predict(feature_matrix, model_dict):
     """
-    segment-level classification of text to classify into aggregated classes
+    segment-level classification of text to classify into aggregated classes.
+    Used only for basic classifiers (i.e. svm or xgboost)
     :param feature_matrix: features of all samples (n samples x m features)
-    :param num_of_samples: number of samples
-    :param svm_model: path to svm model
-    :param classes_file: the csv file with classes names
-    :return:
-    -dictionary : a dictionary that has as elements the classes and as values
-    the percentage (%) that this data belongs to each class
-    -predicted_labels : a list of predicted labels of all samples
+    :param model_dict: path to a dictionary containing:
+        - classifier: the output classifier
+        - classifier_type: the type of the output classifier (i.e basic)
+        - classifier_classnames: the name of the classes
+        - embedding_model: path to the used embeddings model
+        - embeddings_limit: possible limit on embeddings vectors
+
+    :return: 1. dictionary : a dictionary that has as elements the classes
+                and as values the percentage (%) that this data belongs to
+                each class
+             2. predicted_labels : a list of predicted labels of all samples
     """
 
     num_of_samples = feature_matrix.shape[0]
@@ -38,6 +43,17 @@ def basic_segment_classifier_predict(feature_matrix, model_dict):
 
 
 def predict(data, classifier_path, pretrained):
+    """
+    Checks the type of the classifier and decides how to predict labels
+    on test data.
+    :param data: list of string segments or string with sentences
+    :param classifier_path: path to the model_dict
+    :param pretrained: path to the embeddings pretrained model
+    :return: 1. dictionary : a dictionary that has as elements the classes
+                and as values the percentage (%) that this data belongs to
+                each class
+             2. predicted_labels : a list of predicted labels of all samples
+    """
 
     model_dict = pickle.load(open(classifier_path, 'rb'))
     if isinstance(data, str):
@@ -73,14 +89,3 @@ if __name__ == '__main__':
     args = parser.parse_args()
     preds = predict(args.input, args.classifier, args.pretrained)
     print(preds)
-
-
-
-
-
-
-
-
-
-
-

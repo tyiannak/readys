@@ -1,18 +1,25 @@
 import argparse
 import pickle
-import numpy as np
 from collections import Counter
 from feature_extraction import AudioFeatureExtraction
 
 
 def predict_audio_labels(filename, classifier_path):
     """
-    Predict audio class
-    :param audio_file: path of wav file
-    :param svm_model: path of saved svm classifier
-    :return: a dictionary that has as elements the classes
-        and as values the percentage (%) that this wav
-        belongs to each class
+    Extract audio segments from the audio file and predict
+    the class of each segment.
+    :param filename: path of wav file
+    :param classifier_path: path to a dictionary containing:
+        - classifier: the output classifier
+        - classifier_type: the type of the output classifier (i.e basic)
+        - class_mapping: a mapping from label numbers to label names
+        - basic_features_params: parameters for the segment based
+                                feature extraction
+
+    :return: 1. dictionary : a dictionary that has as elements the classes
+                and as values the percentage (%) that this data belongs to
+                each class
+             2. predicted_labels : a list of predicted labels of all samples
     """
     model_dict = pickle.load(open(classifier_path, 'rb'))
 
