@@ -204,7 +204,8 @@ def save_model(model_dict, out_model=None, name=None, is_text=True):
         pickle.dump(model_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-def grid_init(clf, clf_name, parameters_dict, is_imbalanced, seed=None):
+def grid_init(clf, clf_name, parameters_dict,
+              is_imbalanced, scoring, seed=None):
     """
     Initializes a grid using:
         1. a pipeline containing:
@@ -248,7 +249,7 @@ def grid_init(clf, clf_name, parameters_dict, is_imbalanced, seed=None):
 
     grid_clf = GridSearchCV(
         pipe, parameters_dict, cv=cv,
-        scoring='f1_macro', n_jobs=-1)
+        scoring=scoring, n_jobs=-1)
 
     return grid_clf
 
@@ -269,7 +270,8 @@ def train_basic_segment_classifier(feature_matrix, labels,
 
     if config['svm']:
         print("--> Training SVM classifier using GridSearchCV")
-        clf = svm.SVC(kernel="rbf", class_weight='balanced')
+        clf = svm.SVC(kernel=config['svm_parameters']['kernel'],
+                      class_weight='balanced')
         svm_parameters = {'gamma': ['auto', 'scale'],
                           'C': [1e-1, 1, 5, 1e1]}
 
@@ -277,14 +279,15 @@ def train_basic_segment_classifier(feature_matrix, labels,
                                SVM__gamma=svm_parameters['gamma'],
                                SVM__C=svm_parameters['C'])
 
-        grid_clf = grid_init(clf, "SVM", parameters_dict, is_imbalanced)
+        grid_clf = grid_init(clf, "SVM", parameters_dict,
+                             is_imbalanced, config['metric'], seed)
 
     elif config['xgboost']:
         print("--> Training XGBOOST classifier using GridSearchCV")
         xgb = XGBClassifier(n_estimators=100)
         parameters_dict = dict(pca__n_components=n_components)
         grid_clf = grid_init(xgb, "XGBOOST", parameters_dict,
-                             is_imbalanced, seed)
+                             is_imbalanced, config['metric'], seed)
 
     else:
         print("The only supported basic classifiers are SVM and XGBOOST")
@@ -297,7 +300,7 @@ def train_basic_segment_classifier(feature_matrix, labels,
     clf_score = grid_clf.best_score_
     clf_stdev = grid_clf.cv_results_['std_test_score'][grid_clf.best_index_]
     print("--> Parameters of best svm model: {}".format(clf_params))
-    print("--> Best validation score:      {:0.5f} (+/-{:0.5f})".format(clf_score,
-                                                                    clf_stdev))
+    print("--> Best validation score:      {:0.5f} (+/-{:0.5f})".format(
+        clf_score, clf_stdev))
 
     return clf_svc
