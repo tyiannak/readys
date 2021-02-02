@@ -1,12 +1,12 @@
 text_classifier:
-  svm: False
+  svm: True
   xgboost: False
-  fasttext: True
+  fasttext: False
   pretrained_embedding_vectors: 'wiki.en.vec'
   svm_parameters: { 'kernel': 'rbf'
   }
   metric: 'f1_macro'
-  hop_samples: 100
+  hop_samples: 1
   out_folder: "output_models/text/"
 
 audio_classifier:
