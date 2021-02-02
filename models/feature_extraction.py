@@ -22,15 +22,17 @@ class TextFeatureExtraction(object):
         self.embedding_model = word_model_path
         print("--> Loading the text embeddings model")
         if embeddings_limit:
-            self.word_model = KeyedVectors.load_word2vec_format(word_model_path,
-                                                                limit=embeddings_limit)
+            self.word_model = KeyedVectors.load_word2vec_format(
+                word_model_path, limit=embeddings_limit)
         else:
             self.word_model = fasttext.load_model(word_model_path)
 
-    def fit(self):  # comply with scikit-learn transformer requirement
+    def fit(self):
+        # comply with scikit-learn transformer requirement
         return self
 
-    def transform(self, docs):  # comply with scikit-learn transformer requirement
+    def transform(self, docs):
+        # comply with scikit-learn transformer requirement
         doc_word_vector = self.sentence_features_list(docs)
         return doc_word_vector
 
@@ -127,7 +129,8 @@ class AudioFeatureExtraction(object):
             mu = np.mean(sequence, axis=1)
             sequences_short_features_stats.append(mu)
 
-        sequences_short_features_stats = np.asarray(sequences_short_features_stats)
+        sequences_short_features_stats = np.asarray(
+            sequences_short_features_stats)
 
         return sequences_short_features_stats, labels, idx2folder
 

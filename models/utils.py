@@ -83,7 +83,8 @@ def load_text_dataset(data, hop_samples=None):
 
 
 def folders_mapping(folders):
-    """Return a mapping from folder to class and a mapping from class to folder."""
+    """Return a mapping from folder to class and
+    a mapping from class to folder."""
     folder2idx = {}
     idx2folder = {}
     for idx, folder in enumerate(folders):
@@ -99,7 +100,8 @@ def convert_to_fasttext_data(labels, transcriptions, filename):
     :param transcriptions: transcriptions: list of text segments
     :param filename: file to save the output data
     """
-    data = [label + " " + trans for label, trans in zip(labels, transcriptions)]
+    data = [label + " " + trans for label, trans in zip(
+        labels, transcriptions)]
     df = pd.DataFrame(data)
     df.to_csv(filename, index=False, sep=' ',
               header=None, quoting=csv.QUOTE_NONE,
@@ -117,7 +119,8 @@ def check_balance(labels):
     imbalanced_degrees = {}
     for label in class_samples:
         imbalanced_degrees[label] = class_samples[label]/len(labels)
-    print('--> Dataset samples per class: \n    {}'.format(imbalanced_degrees))
+    print('--> Dataset samples per class: \n    {}'.format(
+        imbalanced_degrees))
 
     is_imbalanced = False
     for label in imbalanced_degrees:
@@ -143,17 +146,16 @@ def split_data(x, y, test_size=0.2, fasttext_data=False, seed=None):
     """
 
     if fasttext_data:
-        x_train, x_test, y_train, y_test = train_test_split(x, y,
-                                                            test_size=test_size, random_state=seed,
-                                                            stratify=y)
+        x_train, x_test, y_train, y_test = train_test_split(
+            x, y, test_size=test_size, random_state=seed, stratify=y)
 
         convert_to_fasttext_data(y_train, x_train, 'train.txt')
         convert_to_fasttext_data(y_test, x_test, 'test.txt')
-        print("Splitted dataset into train (saved on train.txt) and test (saved on test.txt) subsets.")
+        print("Splitted dataset into train (saved on train.txt) "
+              "and test (saved on test.txt) subsets.")
     else:
-        x_train, x_test, y_train, y_test = train_test_split(x, y,
-                                                            test_size=test_size, random_state=seed,
-                                                            stratify=y)
+        x_train, x_test, y_train, y_test = train_test_split(
+            x, y, test_size=test_size, random_state=seed, stratify=y)
         return x_train, x_test, y_train, y_test
 
 
@@ -222,7 +224,8 @@ def grid_init(clf, clf_name, parameters_dict, is_imbalanced, seed=None):
     :return: initialized grid
     """
     if is_imbalanced:
-        print('--> The dataset is imbalanced. Applying  SMOTETomek to balance the classes')
+        print('--> The dataset is imbalanced. Applying  SMOTETomek'
+              ' to balance the classes')
         sampler = SMOTETomek(random_state=seed, n_jobs=-1)
 
     scaler = StandardScaler()
@@ -231,14 +234,15 @@ def grid_init(clf, clf_name, parameters_dict, is_imbalanced, seed=None):
 
     pca = PCA()
     if is_imbalanced:
-        pipe = Pipeline(steps=[('sampling', sampler), ('scaler', scaler), ('thresholder', thresholder),
-                               ('pca', pca), (clf_name, clf)],
-                        memory='sklearn_tmp_memory')
+        pipe = Pipeline(steps=[
+            ('sampling', sampler), ('scaler', scaler),
+            ('thresholder', thresholder), ('pca', pca),
+            (clf_name, clf)], memory='sklearn_tmp_memory')
 
     else:
-        pipe = Pipeline(steps=[('scaler', scaler), ('thresholder', thresholder),
-                               ('pca', pca), (clf_name, clf)],
-                        memory='sklearn_tmp_memory')
+        pipe = Pipeline(steps=[
+            ('scaler', scaler), ('thresholder', thresholder),
+            ('pca', pca), (clf_name, clf)], memory='sklearn_tmp_memory')
 
     cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3)
 
@@ -249,7 +253,8 @@ def grid_init(clf, clf_name, parameters_dict, is_imbalanced, seed=None):
     return grid_clf
 
 
-def train_basic_segment_classifier(feature_matrix, labels, is_imbalanced, config, seed=None):
+def train_basic_segment_classifier(feature_matrix, labels,
+                                   is_imbalanced, config, seed=None):
     """
     Trains basic (i.e. svm or xgboost) classifier pipeline
     :param feature_matrix: feature matrix
