@@ -86,7 +86,7 @@ def folders_mapping(folders):
 def convert_to_fasttext_data(labels, transcriptions, filename):
     data = [label + " " + trans for label, trans in zip(labels, transcriptions)]
     df = pd.DataFrame(data)
-    df.to_csv('data.txt', index=False, sep=' ',
+    df.to_csv(filename, index=False, sep=' ',
               header=None, quoting=csv.QUOTE_NONE,
               quotechar="", escapechar=" ")
 
@@ -208,7 +208,7 @@ def train_basic_segment_classifier(feature_matrix, labels, is_imbalanced, config
 
     n_components = [0.98, 0.99, 'mle', None]
 
-    if config['text_classifier']['svm']:
+    if config['svm']:
         print("--> Training SVM classifier using GridSearchCV")
         clf = svm.SVC(kernel="rbf", class_weight='balanced')
         svm_parameters = {'gamma': ['auto', 'scale'],
@@ -220,7 +220,7 @@ def train_basic_segment_classifier(feature_matrix, labels, is_imbalanced, config
 
         grid_clf = grid_init(clf, "SVM", parameters_dict, is_imbalanced)
 
-    elif config['text_classifier']['xgboost']:
+    elif config['xgboost']:
         print("--> Training XGBOOST classifier using GridSearchCV")
         xgb = XGBClassifier(n_estimators=100)
         parameters_dict = dict(pca__n_components=n_components)

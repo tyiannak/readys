@@ -16,6 +16,8 @@ else:
     with open(script_dir + '/config.yaml') as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
+config = config['audio_classifier']
+
 
 def basic_segment_classifier(dir, out_model):
     """
@@ -25,24 +27,16 @@ def basic_segment_classifier(dir, out_model):
     :param output_model: path to save the output model
     :return: the name of the saved model
     """
-    script_dir = os.path.dirname(__file__)
-    if not script_dir:
-        with open(r'./config.yaml') as file:
-            config = yaml.load(file, Loader=yaml.FullLoader)
-    else:
-        with open(script_dir + '/config.yaml') as file:
-            config = yaml.load(file, Loader=yaml.FullLoader)
-
     basic_features_params = config['basic_features_params']
-    config = config['audio_classifier']
     feature_extractor = AudioFeatureExtraction(basic_features_params)
-    features, labels = feature_extractor.transform(dir)
+    features, labels, class_mapping = feature_extractor.transform(dir)
 
     is_imbalanced = check_balance(labels)
     clf = train_basic_segment_classifier(features, labels, is_imbalanced, config, seed)
 
     model_dict = {}
     model_dict['classifier_type'] = 'basic'
+    model_dict['class_mapping'] = class_mapping
     model_dict['classifier'] = clf
     model_dict['basic_features_params'] = basic_features_params
 
@@ -65,4 +59,4 @@ if __name__ == '__main__':
     if os.path.exists(args.input_folder) is False:
         raise FileNotFoundError()
 
-    train_svm(args.input_folder, args.outputmodelpath)
+    basic_segment_classifier(args.input_folder, args.outputmodelpath)

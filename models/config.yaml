@@ -1,8 +1,8 @@
 text_classifier:
-  svm: True
+  svm: False
   xgboost: False
-  fasttext: False
-  fasttext_vectors: 'wiki.en.vec'
+  fasttext: True
+  pretrained_embedding_vectors: 'wiki.en.vec'
   svm_parameters: { 'kernel': 'rbf',
                 'metric': 'f1_macro'
   }

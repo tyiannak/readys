@@ -18,18 +18,17 @@ else:
     with open(script_dir + '/config.yaml') as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
+config = config['text_classifier']
+
 
 def basic_segment_classifier(data, feature_extractor, out_model):
     """
 
     :param data: csv file with one column transcriptions (text samples)
                    and one column labels
-    :param text_emb_model: text embeddings model (e.g. loaded using
-                           load_text_embeddings() function
-    :param out_model: name of the svm model to save
-    :return model_name: name of the svm model that saved ,
-    :return class_file_name: name of csv file that contains the classes
-                             of the model
+    :param feature_extractor: an initialized TextFeatureExtraction object
+    :param out_model: name of the output model
+    :return None
     """
 
     np.random.seed(seed)
@@ -37,7 +36,7 @@ def basic_segment_classifier(data, feature_extractor, out_model):
     class_file_name = out_model + "_classenames.csv"
 
     print('--> Loading Dataset...')
-    transcriptions, labels, classnames = load_dataset(data, class_file_name, config['text_classifier']['hop_samples'])
+    transcriptions, labels, classnames = load_dataset(data, class_file_name, config['hop_samples'])
 
     is_imbalanced = check_balance(labels)
 
@@ -68,23 +67,24 @@ def train_fasttext_segment_classifier(data, embeddings_limit, out_model):
 
     class_file_name = out_model + "_classenames.csv"
 
+    pretrained_embedding_vectors = config['pretrained_embedding_vectors']
     print("--> Loading the text embeddings model")
-    word_model = KeyedVectors.load_word2vec_format('wiki.en.vec',
+    word_model = KeyedVectors.load_word2vec_format(pretrained_embedding_vectors,
                                                    limit=embeddings_limit)
-    word_model.save_word2vec_format('my.vec')
+    word_model.save_word2vec_format('tmp.vec')
     print('--> Loading Dataset...')
-    transcriptions, labels, classnames = load_dataset(data, class_file_name, config['text_classifier']['hop_samples'])
+    transcriptions, labels, classnames = load_dataset(data, class_file_name, config['hop_samples'])
 
     convert_to_fasttext_data(labels, transcriptions, 'train.txt')
 
     print("--> Training classifier using fasttext")
     model = fasttext.train_supervised(input='train.txt', epoch=25, lr=1.0,
                                       wordNgrams=2, verbose=2, minCount=1,
-                                      loss="hs", dim=300, pretrainedVectors='my.vec', seed=seed)
+                                      loss="hs", dim=300, pretrainedVectors='tmp.vec', seed=seed)
 
     timestamp = time.ctime()
     name = "fasttext_classifier_{}.ftz".format(timestamp)
-    out_folder = config['text_classifier']["out_folder"]
+    out_folder = config["out_folder"]
     if not script_dir:
         if not os.path.exists(out_folder):
             os.makedirs(out_folder)
@@ -127,10 +127,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if config['text_classifier']['fasttext']:
+    if config['fasttext']:
         train_fasttext_segment_classifier(args.annotation, args.embeddings_limit, args.outputmodelpath)
 
-    elif config['text_classifier']['svm'] or config['text_classifier']['xgboost']:
+    elif config['svm'] or config['xgboost']:
         feature_extractor = TextFeatureExtraction(args.pretrained,
                                                   args.embeddings_limit)
         basic_segment_classifier(args.annotation, feature_extractor,

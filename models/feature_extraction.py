@@ -108,7 +108,7 @@ class AudioFeatureExtraction(object):
             labels = np.asarray(labels)
 
         else:
-            filenames = [input]
+            filenames = [folder]
         # Match filenames with labels
         sequences_short_features, feature_names = \
             self.extract_segment_features(filenames)
@@ -120,10 +120,10 @@ class AudioFeatureExtraction(object):
 
         sequences_short_features_stats = np.asarray(sequences_short_features_stats)
 
-        return sequences_short_features_stats, labels
+        return sequences_short_features_stats, labels, idx2folder
 
     @staticmethod
-    def read_files(self, filenames):
+    def read_files(filenames):
         """Read file using pyAudioAnalysis"""
 
         # Consider same sampling frequencies
