@@ -225,8 +225,8 @@ def grid_init(clf, clf_name, parameters_dict,
     :return: initialized grid
     """
     if is_imbalanced:
-        print('--> The dataset is imbalanced. Applying  SMOTETomek'
-              ' to balance the classes')
+        print('--> The dataset is imbalanced. SMOTETomek will'
+              ' be applied to balance the classes')
         sampler = SMOTETomek(random_state=seed, n_jobs=-1)
 
     scaler = StandardScaler()
@@ -269,7 +269,6 @@ def train_basic_segment_classifier(feature_matrix, labels,
     n_components = [0.98, 0.99, 'mle', None]
 
     if config['svm']:
-        print("--> Training SVM classifier using GridSearchCV")
         clf = svm.SVC(kernel=config['svm_parameters']['kernel'],
                       class_weight='balanced')
         svm_parameters = {'gamma': ['auto', 'scale'],
@@ -281,13 +280,14 @@ def train_basic_segment_classifier(feature_matrix, labels,
 
         grid_clf = grid_init(clf, "SVM", parameters_dict,
                              is_imbalanced, config['metric'], seed)
+        print("--> Training SVM classifier using GridSearchCV")
 
     elif config['xgboost']:
-        print("--> Training XGBOOST classifier using GridSearchCV")
         xgb = XGBClassifier(n_estimators=100)
         parameters_dict = dict(pca__n_components=n_components)
         grid_clf = grid_init(xgb, "XGBOOST", parameters_dict,
                              is_imbalanced, config['metric'], seed)
+        print("--> Training XGBOOST classifier using GridSearchCV")
 
     else:
         print("The only supported basic classifiers are SVM and XGBOOST")
