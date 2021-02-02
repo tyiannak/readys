@@ -148,9 +148,9 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--pretrained", required=True,
                         help="the path of fasttext pretrained model "
                              "(.bin file)")
-    parser.add_argument("-o", "--outputmodelpath", required=False,
+    parser.add_argument("-o", "--outputmodelname", required=False,
                         default="SVM",
-                        help="path to the final svm model to be saved")
+                        help="the name of final model")
     parser.add_argument('-l', '--embeddings_limit', required=False,
                         default=None, type=int,
                         help='Strategy to apply in transfer learning: 0 or 1.')
@@ -159,12 +159,12 @@ if __name__ == '__main__':
 
     if config['fasttext']:
         train_fasttext_segment_classifier(
-            args.annotation, args.embeddings_limit, args.outputmodelpath)
+            args.annotation, args.embeddings_limit, args.outputmodelname)
 
     elif config['svm'] or config['xgboost']:
         feature_extractor = TextFeatureExtraction(args.pretrained,
                                                   args.embeddings_limit)
         basic_segment_classifier(args.annotation, feature_extractor,
-                          args.outputmodelpath)
+                          args.outputmodelname)
     else:
         print('SVM and fasttext are the only supported classifiers.')

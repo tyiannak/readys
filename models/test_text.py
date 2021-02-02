@@ -42,7 +42,7 @@ def basic_segment_classifier_predict(feature_matrix, model_dict):
     return dictionary, predicted_labels
 
 
-def predict(data, classifier_path, pretrained):
+def predict(data, classifier_path, pretrained,embeddings_limit):
     """
     Checks the type of the classifier and decides how to predict labels
     on test data.
@@ -61,16 +61,25 @@ def predict(data, classifier_path, pretrained):
     if model_dict['classifier_type'] == 'fasttext':
         model_path = model_dict['fasttext_model']
         model = fasttext.load_model(model_path)
-
-        preds = model.predict(data)
+        classes = model_dict['classifier_classnames']
+        dictionary = {}
+        predicted_labels = model.predict(data)
+        num_of_samples = len(predicted_labels[0])
+        for label in classes:
+            dictionary[label] = 0
+        for sample in predicted_labels[0]:
+            label = sample[0]
+            dictionary[label] += 1
+        for label in dictionary:
+            # TODO: Replace this aggregation by posterior-based aggregation
+            dictionary[label] = (dictionary[label] * 100) / num_of_samples
     else:
-        embeddings_limit = model_dict['embeddings_limit']
         feature_extractor = TextFeatureExtraction(pretrained,
                                                   embeddings_limit)
         feature_matrix = feature_extractor.transform(data)
-        preds = basic_segment_classifier_predict(feature_matrix, model_dict)
+        dictionary, predicted_labels = basic_segment_classifier_predict(feature_matrix, model_dict)
 
-    return preds
+    return dictionary , predicted_labels
 
 
 if __name__ == '__main__':
@@ -87,5 +96,5 @@ if __name__ == '__main__':
                         help='Strategy to apply in transfer learning: 0 or 1.')
 
     args = parser.parse_args()
-    preds = predict(args.input, args.classifier, args.pretrained)
-    print(preds)
+    dictionary, _ = predict(args.input, args.classifier, args.pretrained,args.embeddings_limit)
+    print(dictionary)
