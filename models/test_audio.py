@@ -46,6 +46,9 @@ def predict_audio_labels(filename, classifier_path):
 
     class_count = Counter(preds_classnames)
     pred_dict = {}
+    for i in class_mapping:
+        j = class_mapping[i]
+        pred_dict[j] = 0.0
     for label in class_count:
         pred_dict[label] = (class_count[label]/num_of_samples)*100
 
