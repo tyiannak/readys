@@ -1,5 +1,5 @@
 import argparse
-import pickle
+import pickle5 as pickle
 from collections import Counter
 from feature_extraction import AudioFeatureExtraction
 
