@@ -16,9 +16,9 @@ audio_classifier:
   }
   metric: 'f1_macro'
   basic_features_params: {
-    'mid_window': 1,
+    'mid_window': 3,
     'mid_step': 1,
-    'short_window': 0.05,
-    'short_step': 0.01
+    'short_window': 0.1,
+    'short_step': 0.1
   }
   out_folder: "output_models/audio/"
