@@ -1,61 +1,84 @@
-from models.train_text import extract_fast_text_features
-from models.train_text import load_text_embeddings
+from feature_extraction import TextFeatureExtraction
 import argparse
-import pickle as cPickle
-import pandas as pd
+import fasttext
+import pickle
+from nltk.tokenize import sent_tokenize
 
 
-def extract_features(data, fasttext_pretrained_model, embeddings_limit=None):
+def basic_segment_classifier_predict(feature_matrix, model_dict):
     """
-    Extract features from text segments
-    :param data: list of samples (text-segments)
-    :param fasttext_pretrained_model:  the fast text pretrained model loaded
-    :param embeddings_limit: embeddings_limit: limit of the number of embeddings
-        If None, then the whole set of embeddings is loaded.
-    :return:
-    -feature_matrix: features of all samples (n samples x m features)
-    -num_of_samples: number of samples
-    """
-    num_of_samples = len(data)
-    feature_matrix = extract_fast_text_features(
-        data, fasttext_pretrained_model,
-        embeddings_limit)
-    return feature_matrix , num_of_samples
-
-
-def predict_text_labels(feature_matrix, num_of_samples, svm_model,
-                        classes_file):
-    """
-    segment-level classification of text to classify into aggregated classes
+    segment-level classification of text to classify into aggregated classes.
+    Used only for basic classifiers (i.e. svm or xgboost)
     :param feature_matrix: features of all samples (n samples x m features)
-    :param num_of_samples: number of samples
-    :param svm_model: path to svm model
-    :param classes_file: the csv file with classes names
-    :return:
-    -dictionary : a dictionary that has as elements the classes and as values
-    the percentage (%) that this data belongs to each class
-    -predicted_labels : a list of predicted labels of all samples
+    :param model_dict: path to a dictionary containing:
+        - classifier: the output classifier
+        - classifier_type: the type of the output classifier (i.e basic)
+        - classifier_classnames: the name of the classes
+        - embedding_model: path to the used embeddings model
+        - embeddings_limit: possible limit on embeddings vectors
+
+    :return: 1. dictionary : a dictionary that has as elements the classes
+                and as values the percentage (%) that this data belongs to
+                each class
+             2. predicted_labels : a list of predicted labels of all samples
     """
 
-    with open(svm_model, 'rb') as fid:
-        classifier = cPickle.load(fid)
-        mean = cPickle.load(fid)
-        std = cPickle.load(fid)
-    df = pd.read_csv(classes_file)
-    classes = df['classes'].tolist()
+    num_of_samples = feature_matrix.shape[0]
+    classifier = model_dict['classifier']
+    classes = model_dict['classifier_classnames']
     dictionary = {}
     predicted_labels = []
     for label in classes:
         dictionary[label] = 0
     for sample in feature_matrix: # for each sentence:
-        # predict
-        class_id = classifier.predict((sample - mean) / std)
+        sample = sample.reshape(1, -1)
+        class_id = classifier.predict(sample)
         label = class_id[0]
         predicted_labels.append(label)
         dictionary[label] += 1
     for label in dictionary:
         # TODO: Replace this aggregation by posterior-based aggregation
         dictionary[label] = (dictionary[label] * 100) / num_of_samples
+    return dictionary, predicted_labels
+
+
+def predict(data, classifier_path, pretrained,embeddings_limit):
+    """
+    Checks the type of the classifier and decides how to predict labels
+    on test data.
+    :param data: list of string segments or string with sentences
+    :param classifier_path: path to the model_dict
+    :param pretrained: path to the embeddings pretrained model
+    :return: 1. dictionary : a dictionary that has as elements the classes
+                and as values the percentage (%) that this data belongs to
+                each class
+             2. predicted_labels : a list of predicted labels of all samples
+    """
+
+    model_dict = pickle.load(open(classifier_path, 'rb'))
+    if isinstance(data, str):
+        data = sent_tokenize(data)
+    if model_dict['classifier_type'] == 'fasttext':
+        model_path = model_dict['fasttext_model']
+        model = fasttext.load_model(model_path)
+        classes = model_dict['classifier_classnames']
+        dictionary = {}
+        predicted_labels = model.predict(data)
+        num_of_samples = len(predicted_labels[0])
+        for label in classes:
+            dictionary[label] = 0
+        for sample in predicted_labels[0]:
+            label = sample[0]
+            dictionary[label] += 1
+        for label in dictionary:
+            # TODO: Replace this aggregation by posterior-based aggregation
+            dictionary[label] = (dictionary[label] * 100) / num_of_samples
+    else:
+        feature_extractor = TextFeatureExtraction(pretrained,
+                                                  embeddings_limit)
+        feature_matrix = feature_extractor.transform(data)
+        dictionary, predicted_labels = basic_segment_classifier_predict(feature_matrix, model_dict)
+
     return dictionary , predicted_labels
 
 
@@ -68,45 +91,10 @@ if __name__ == '__main__':
                              "(.bin file)")
     parser.add_argument("-c", "--classifier",
                         help="the path of the classifier")
-    parser.add_argument("-n", "--names",
-                        help="the path of csv file that contains the"
-                              " name of classes of this specific model")
     parser.add_argument('-l', '--embeddings_limit', required=False,
                         default=None, type=int,
                         help='Strategy to apply in transfer learning: 0 or 1.')
 
     args = parser.parse_args()
-
-    text_embed_model = load_text_embeddings(args.pretrained,
-                                            args.embeddings_limit)
-    feature_matrix , num_of_samples = extract_features(args.input,
-                                                       text_embed_model,
-                                                       args.embeddings_limit)
-    results = predict_text_labels(feature_matrix,num_of_samples,
-                                  args.classifier, args.names)
-    print(results)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    dictionary, _ = predict(args.input, args.classifier, args.pretrained,args.embeddings_limit)
+    print(dictionary)
