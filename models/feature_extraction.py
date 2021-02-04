@@ -108,20 +108,21 @@ class AudioFeatureExtraction(object):
 
         folders = [x[0] for x in os.walk(folder)]
         folders = sorted(folders[1:])
-        folder_names = [folder.split('/')[1] for folder in folders]
+        folder_names = [os.path.split(folder)[1] for folder in folders]
 
         if folders:
             for folder in folders:
                 for f in glob.iglob(os.path.join(folder, '*.wav')):
                     filenames.append(f)
-                    labels.append(folder.split('/')[1])
+                    labels.append(os.path.split(folder)[1])
             folder2idx, idx2folder = folders_mapping(folders=folder_names)
             labels = list(map(lambda x: folder2idx[x], labels))
             labels = np.asarray(labels)
 
         else:
             filenames = [folder]
-            
+        print(labels)
+        print(idx2folder)
         # Match filenames with labels
         sequences_short_features, feature_names = \
             self.extract_segment_features(filenames)
