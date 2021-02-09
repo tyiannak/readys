@@ -8,7 +8,7 @@ representation to speech recordings towards the assessment of speech quality.
 ### Text: text_analysis.py 
 In order to get text features from an audio file run the below command in your terminal 
 ```
-python3 text_analysis.py -i wav_file -g google_credentials -c classifiers_path -p fasttext_pretrained_model -l embeddings_limit -s segmentation_threshold -m segmentation_method
+python3 text_analysis.py -i wav_file -g google_credentials -c classifiers_path -r reference_text -s segmentation_threshold -m segmentation_method
 ```
 Where: 
 
@@ -17,13 +17,9 @@ Where:
 - google_credentials : a json file which contains the google credentials for 
   speech to text functionality 
 
-- classifiers_path: the directory which contains all trained classifiers 
-  (models' files + .csv classes_names files)
+- classifiers_path: the directory which contains all text trained classifiers 
 
-- fasttext_pretrained_model: the fast text pretrained model path 
-
-- embeddings_limit(optional): if we don't want to load the whole pretrained 
-  model then this parameter defines the number of vectors will load 
+- reference_text(optional): path of .txt file of reference text 
 
 - segmentation_threshold(optional): if you want to segment text by punctuation, 
   don't use this argument (or use None as value), 
@@ -46,8 +42,7 @@ Where:
 
 - wav_file : the path of audio file 
 
-- classifiers_path : the directory which contains all trained classifiers 
-  (models' files + MEANS files)  
+- classifiers_path : the directory which contains all audio trained classifiers 
   
 The feature_names , features and metadata will be printed
 
