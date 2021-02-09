@@ -2,11 +2,22 @@ import io
 import os
 from google.cloud.speech_v1.gapic import enums
 from google.cloud import speech
-import audio_analysis
 from pyAudioAnalysis import audioBasicIO
 from scipy.io import wavfile
+import wave
 
 MAX_FILE_DURATION = 30
+
+def get_wav_properties(wav_path):
+    """
+    Reads sampling rate and duration of an WAV audio file
+    :param wav_path: path to the WAV file
+    :return: sampling rate in Hz, duration in seconds
+    """
+    with wave.open(wav_path, "rb") as wave_file:
+        fs = wave_file.getframerate()
+        duration = wave_file.getnframes() / float(fs)
+    return fs, duration
 
 def audio_to_asr_text(audio_path, google_credentials_file):
     """
@@ -21,7 +32,7 @@ def audio_to_asr_text(audio_path, google_credentials_file):
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials_file
     language_code = "en-US"
 
-    fs, dur = audio_analysis.get_wav_properties(audio_path)
+    fs, dur = get_wav_properties(audio_path)
 
     cur_pos = 0
     my_results = []
