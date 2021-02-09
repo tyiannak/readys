@@ -1,31 +1,21 @@
 import numpy as np
-import os
 import glob2 as glob
-import fasttext
-from gensim.models import KeyedVectors
 from utils import text_preprocess
 from utils import folders_mapping
 from pyAudioAnalysis import MidTermFeatures as aF
 from pyAudioAnalysis import audioBasicIO as aIO
+import os
 
 
 class TextFeatureExtraction(object):
-    def __init__(self, word_model_path, embeddings_limit=None):
+    def __init__(self, word_model,embeddings_limit=None):
         """
-            Initializes a TextFeatureExtraction object by loading the fasttext
-            text representation model
-            :param word_model_path: path to the fasttext .bin file
+            Initializes a TextFeatureExtraction object
+            :param word_model: the loaded fasttext model
             :param embeddings_limit: limit of the number of embeddings.
-                If None, then the whole set of embeddings is loaded.
         """
+        self.word_model = word_model
         self.embeddings_limit = embeddings_limit
-        self.embedding_model = word_model_path
-        print("--> Loading the text embeddings model")
-        if embeddings_limit:
-            self.word_model = KeyedVectors.load_word2vec_format(
-                word_model_path, limit=embeddings_limit)
-        else:
-            self.word_model = fasttext.load_model(word_model_path)
 
     def fit(self):
         # comply with scikit-learn transformer requirement
@@ -102,7 +92,7 @@ class AudioFeatureExtraction(object):
                  2. labels: list of labels
                  3. idx2folder: a mapping from label numbers to label names
         """
-        print("--> Extracting audio features")
+
         filenames = []
         labels = []
 
@@ -178,6 +168,7 @@ class AudioFeatureExtraction(object):
             List of feature names
 
         """
+        print("--> Extracting audio features")
         segment_features_all = []
 
         sequences, sampling_rate = self.read_files(filenames)

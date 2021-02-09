@@ -22,10 +22,10 @@ config = config['audio_classifier']
 def basic_segment_classifier(dir, out_model):
     """
     Train audio models
-    :param files_path: directory which contains
+    :param dir: directory which contains
         audio organized in folders of classes
     :param output_model: path to save the output model
-    :return: the name of the saved model
+    :return: None
     """
     basic_features_params = config['basic_features_params']
     feature_extractor = AudioFeatureExtraction(basic_features_params)
@@ -40,10 +40,11 @@ def basic_segment_classifier(dir, out_model):
     model_dict['classifier'] = clf
     model_dict['basic_features_params'] = basic_features_params
 
+    out_folder = config['out_folder']
     if out_model is None:
-        save_model(model_dict, name="basic_classifier", is_text=False)
+        save_model(model_dict,out_folder, name="basic_classifier")
     else:
-        save_model(model_dict, out_model=out_model, is_text=False)
+        save_model(model_dict,out_folder, out_model=out_model)
     return None
 
 

@@ -22,3 +22,17 @@ audio_classifier:
     'short_step': 0.1
   }
   out_folder: "output_models/audio/"
+
+recording_level_classifier:
+  features_type: 'fused'
+  classifier_type: 'svm_rbf'
+  metric: 'f1_macro'
+  google_credentials: 'apikey.json'
+  reference_text: False
+  text_segmentation_params: {
+     'segmentation_threshold' : None, 
+     'method_of_segmentation' : None
+  }
+  audio_models_folder: "output_models/audio/"
+  text_models_folder: "output_models/text/"
+  out_folder: "output_models/recording_level/"
