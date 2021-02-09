@@ -79,8 +79,8 @@ def audio_based_feature_extraction(input_file,models_directory):
 
     # get the silence estimates using pyAudioAnalysis semisupervised approach
     # for different windows and steps
-    seg_limits_short = aS.silence_removal(x, fs, 0.04, 0.04, 0.07)
-    seg_limits_long = aS.silence_removal(x, fs, 0.07, 0.07, 0.3)
+    seg_limits_short = aS.silence_removal(x, fs, 0.5, 0.5, 0.5)
+    seg_limits_long = aS.silence_removal(x, fs, 1.0, 1.0, 0.5)
 
     # short windows
     silence_features_short, number_of_pauses_short, total_speech_short = \
@@ -94,12 +94,9 @@ def audio_based_feature_extraction(input_file,models_directory):
     # Load classifier:
     dictionaries = []
     for filename in os.listdir(models_directory):
-        if not (filename.endswith("MEANS")) and \
-           not (filename.endswith(".arff")) and \
-           not (filename.endswith("_results")):
-            model_path = os.path.join(models_directory, filename)
-            dictionary = predict_audio_labels(input_file, model_path)[0]
-            dictionaries.append(dictionary)
+        model_path = os.path.join(models_directory, filename)
+        dictionary = predict_audio_labels(input_file, model_path)[0]
+        dictionaries.append(dictionary)
 
     # list of features and feature names
     feature_names = ["Average silence duration short (sec)",
