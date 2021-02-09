@@ -65,8 +65,8 @@ https://drive.google.com/drive/folders/1kIOdlztkGKfYZZONXYqT1h9OtJS9hFBP
 4. In "google_credentials" write the path of google credentials file
 5. In "reference_text" choose False if no reference text is used or True if reference text is used (Attention!! If reference_text is True then the .txt reference    files should be located in the same directory as their relative wav files and have the same name)
 6. In "text_segmentation_params" 
-      -'segmentation_threshold' choose None if no threshold is used,otherwise choose an integer number which defines the number of words per segment or the               segment's duration (sec). 
-      -'method_of_segmentation' choose None for text segmentation in sentences,"fixed_size_text" for segmentation in fixed number of words or "fixed_window" 
+      - 'segmentation_threshold' choose None if no threshold is used,otherwise choose an integer number which defines the number of words per segment or the               segment's duration (sec). 
+      - 'method_of_segmentation' choose None for text segmentation in sentences,"fixed_size_text" for segmentation in fixed number of words or "fixed_window" 
         for segmentation in fixed seconds.
 7. In "audio_models_folder"
       "text_models_folder" and
