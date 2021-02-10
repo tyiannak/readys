@@ -1,7 +1,15 @@
-from feature_extraction import TextFeatureExtraction
+import sys
+import os
 import argparse
 from nltk.tokenize import sent_tokenize
-from utils import load_text_classifier_attributes
+
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), '../'))
+
+from models.feature_extraction import TextFeatureExtraction
+from models.utils import load_text_classifier_attributes
+
+
 
 def basic_segment_classifier_predict(feature_matrix, classifier,classes):
     """

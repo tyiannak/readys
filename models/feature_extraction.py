@@ -1,10 +1,16 @@
 import numpy as np
 import glob2 as glob
-from utils import text_preprocess
-from utils import folders_mapping
 from pyAudioAnalysis import MidTermFeatures as aF
 from pyAudioAnalysis import audioBasicIO as aIO
 import os
+import sys
+
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), '../'))
+
+from models.utils import text_preprocess
+from models.utils import folders_mapping
+
 
 
 class TextFeatureExtraction(object):

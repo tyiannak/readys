@@ -86,9 +86,9 @@ class RecordingLevelFeatureExtraction(object):
         """
         features_type = self.basic_features_params['features_type']
         audio_models_directory = self.basic_features_params['audio_models_folder']
-        audio_models_directory = 'models/' + audio_models_directory
+        audio_models_directory = audio_models_directory
         text_models_directory = self.basic_features_params['text_models_folder']
-        text_models_directory = 'models/' + text_models_directory
+        text_models_directory =  text_models_directory
         google_credentials = self.basic_features_params['google_credentials']
         segmentation_threshold = self.basic_features_params['text_segmentation_params']['segmentation_threshold']
         method = self.basic_features_params['text_segmentation_params']['method_of_segmentation']
