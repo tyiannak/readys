@@ -1,5 +1,11 @@
 import pickle5 as pickle
-from recording_level_feature_extraction import RecordingLevelFeatureExtraction
+import sys
+import os
+
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), '../'))
+
+from models.recording_level_feature_extraction import RecordingLevelFeatureExtraction
 import argparse
 import yaml
 import os

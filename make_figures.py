@@ -1,10 +1,10 @@
 import plotly.graph_objects as go
 import numpy as np
 from text_analysis import get_asr_features as tbfe
-from text_analysis import load_text_embedding_model as load_tem
 import json
 from audio_analysis import audio_based_feature_extraction as abfe
-
+from models.utils import load_classifiers
+from recording_level_analysis import get_final_class
 
 def load_conf_file(path):
     with open(path) as f:
@@ -19,16 +19,18 @@ def make_figures():
     reference_text = conf['reference_text']
     audio_models_directory = conf['audio_models_directory']
     text_models_directory = conf['text_models_directory']
-    fasttext_pretrained_model_path = conf['fasttext_pretrained_model_path']
-    embeddings_model = load_tem(fasttext_pretrained_model_path,500000)
+    recording_level_model_directory = conf['recording_level_model_directory']
+    segmentation_threshold = conf['segmentation_threshold']
+    segmentation_method = conf['segmentation_method']
+    classifiers_attributes = load_classifiers(text_models_directory)
 
     #text feature extraction
     text_features, text_feature_names, text_metadata = tbfe(input_file,
                                                             google_credentials,
-                                                            text_models_directory,
-                                                            embeddings_model,
+                                                            classifiers_attributes,
                                                             reference_text,
-                                                            500000)
+                                                            segmentation_threshold,
+                                                            segmentation_method)
     # audio feature extraction
     if text_metadata['Number of words']== 0:
         audio_feature_names = ["Average silence duration short (sec)",
@@ -50,34 +52,31 @@ def make_figures():
         }
     else:
         audio_features, audio_feature_names, audio_metadata = abfe(input_file,audio_models_directory)
-    '''
-    rec = text_features[0]
-    pre = text_features[1]
-    f1 = text_features[2]
-    words = text_features[3]
-    dur = text_features[4]
-    word_rate = text_features[5]
-    '''
 
-    # take x and y coordinates for temporal scores plotting
-    recall_list = text_metadata["temporal_recall"]
-    precision_list  = text_metadata["temporal_precision"]
-    f1_list = text_metadata["temporal_f1"]
-    Ref = text_metadata["temporal_ref"]
-    Asr = text_metadata["temporal_asr"]
-    X_recall=[]
-    Y_recall=[]
-    X_precision=[]
-    Y_precision=[]
-    X_f1=[]
-    Y_f1=[]
-    for i in range(len(recall_list)):
-        X_recall.append(recall_list[i]['x'])
-        Y_recall.append(recall_list[i]['y'])
-        X_precision.append(precision_list[i]['x'])
-        Y_precision.append(precision_list[i]['y'])
-        X_f1.append(f1_list[i]['x'])
-        Y_f1.append(f1_list[i]['y'])
+    #recording level final class
+    final_class , category = get_final_class(input_file,recording_level_model_directory)
+
+    # take x and y coordinates for temporal text scores plotting
+    X_recall = []
+    Y_recall = []
+    X_precision = []
+    Y_precision = []
+    X_f1 = []
+    Y_f1 = []
+    if reference_text:
+        recall_list = text_metadata["temporal_recall"]
+        precision_list  = text_metadata["temporal_precision"]
+        f1_list = text_metadata["temporal_f1"]
+        Ref = text_metadata["temporal_ref"]
+        Asr = text_metadata["temporal_asr"]
+
+        for i in range(len(recall_list)):
+            X_recall.append(recall_list[i]['x'])
+            Y_recall.append(recall_list[i]['y'])
+            X_precision.append(precision_list[i]['x'])
+            Y_precision.append(precision_list[i]['y'])
+            X_f1.append(f1_list[i]['x'])
+            Y_f1.append(f1_list[i]['y'])
 
     X_Rlist = np.array(X_recall)
     Y_Rlist = np.array(Y_recall)
@@ -86,22 +85,9 @@ def make_figures():
     X_Flist = np.array(X_f1)
     Y_Flist = np.array(Y_f1)
 
-    '''
-    # audio features extraction
-    
-    average_silence_dur_short = audio_features[0]
-    average_silence_dur_long = audio_features[1]
-    silence_seg_per_minute_short = audio_features[2]
-    silence_seg_per_minute_long = audio_features[3]
-    std_short= audio_features[4]
-    std_long = audio_features[5]
-    high_percentage = audio_features[6]
-    neutral_percentage = audio_features[7]
-    low_percentage = audio_features[8]
-    '''
     text_metadata_new = {i:text_metadata[i]
                          for i in text_metadata
-                         if i!='Asr timestamps' and i!='temporal_recall'
+                         if i!='asr timestamps' and i!='temporal_recall'
                          and i!='temporal_precision' and i != 'temporal_f1'
                          and i!='temporal_ref' and i != 'temporal_asr'}
     text_metadata_names = list(text_metadata_new.keys())
@@ -110,9 +96,9 @@ def make_figures():
     audio_metadata_names = list(audio_metadata.keys())
     audio_metadata_values = list(audio_metadata.values())
     Audio_names = audio_feature_names + audio_metadata_names
-    Names = Text_names + Audio_names
+    Names = Text_names + Audio_names + [category]
     Values = text_features + text_metadata_values + audio_features + \
-             audio_metadata_values
+             audio_metadata_values + [final_class]
     fig = go.Figure(data=[go.Table(
         columnorder=[1, 2],
         columnwidth=[80, 400],

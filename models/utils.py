@@ -137,6 +137,18 @@ def test_if_already_loaded(model_path,classifiers_attributes):
             classifier, classes, pretrained_path, pretrained, embeddings_limit, fasttext_model_path = load_text_classifier_attributes(model_path)
     return  classifier, classes, pretrained_path, pretrained, embeddings_limit, fasttext_model_path
 
+def load_classifiers(text_models_directory):
+    classifiers_attributes = []
+    for filename in os.listdir(text_models_directory):
+        if filename.endswith(".pt"):
+            model_path = os.path.join(text_models_directory, filename)
+            dictionary = {}
+            dictionary['classifier'], dictionary['classes'], dictionary['pretrained_path'], dictionary['pretrained'], \
+            dictionary['embeddings_limit'], dictionary['fasttext_model_path'] = \
+                test_if_already_loaded(model_path, classifiers_attributes)
+            classifiers_attributes.append(dictionary)
+    return classifiers_attributes
+
 def load_text_dataset(data, hop_samples=None):
     """
     Loads a text dataset

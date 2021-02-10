@@ -7,7 +7,7 @@ from models.test_text import predict
 import argparse
 import re
 import os
-from models.utils import test_if_already_loaded
+from models.utils import load_classifiers
 from pathlib import Path
 import pickle5 as pickle
 
@@ -285,15 +285,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--method_of_segmentation', required=False, default=None,
                         help='Choice between "fixed_size_text" and "fixed_window"')
     args = parser.parse_args()
-    classifiers_attributes = []
-    for filename in os.listdir(args.classifiers_path):
-        if filename.endswith(".pt"):
-            model_path = os.path.join(args.classifiers_path, filename)
-            dictionary = {}
-            dictionary['classifier'], dictionary['classes'], dictionary['pretrained_path'], dictionary['pretrained'], \
-            dictionary['embeddings_limit'], dictionary['fasttext_model_path'] = \
-                test_if_already_loaded(model_path, classifiers_attributes)
-            classifiers_attributes.append(dictionary)
+    classifiers_attributes = load_classifiers(args.classifiers_path)
     features,feature_names,metadata = get_asr_features(args.input, args.google_credentials,classifiers_attributes,args.reference_text,
                                                        args.segmentation_threshold,args.method_of_segmentation)
     print("Features names:\n {}".format(feature_names))

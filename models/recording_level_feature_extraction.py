@@ -3,12 +3,16 @@ currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
 if parentdir not in sys.path:
     sys.path.insert(0,parentdir)
+
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), '../'))
+
 from text_analysis import get_asr_features
 from audio_analysis import audio_based_feature_extraction
-from utils import folders_mapping
+from models.utils import folders_mapping
 import glob2 as glob
 import numpy as np
-from utils import test_if_already_loaded
+from models.utils import load_classifiers
 
 
 class RecordingLevelFeatureExtraction(object):
@@ -86,9 +90,7 @@ class RecordingLevelFeatureExtraction(object):
         """
         features_type = self.basic_features_params['features_type']
         audio_models_directory = self.basic_features_params['audio_models_folder']
-        audio_models_directory = audio_models_directory
         text_models_directory = self.basic_features_params['text_models_folder']
-        text_models_directory =  text_models_directory
         google_credentials = self.basic_features_params['google_credentials']
         segmentation_threshold = self.basic_features_params['text_segmentation_params']['segmentation_threshold']
         method = self.basic_features_params['text_segmentation_params']['method_of_segmentation']
@@ -96,15 +98,7 @@ class RecordingLevelFeatureExtraction(object):
         audio_models_directory = 'models/' + audio_models_directory
         text_models_directory = 'models/' + text_models_directory
         #load text classifiers attributes containing embeddings in order not to be loaded for every sample
-        classifiers_attributes = []
-        for filename in os.listdir(text_models_directory):
-            if filename.endswith(".pt"):
-                model_path = os.path.join(text_models_directory, filename)
-                dictionary = {}
-                dictionary['classifier'], dictionary['classes'],dictionary['pretrained_path'], dictionary['pretrained'], \
-                                dictionary['embeddings_limit'],dictionary['fasttext_model_path'] = \
-                                test_if_already_loaded(model_path,classifiers_attributes)
-                classifiers_attributes.append(dictionary)
+        classifiers_attributes = load_classifiers(text_models_directory)
         for count,file in enumerate(filenames):
             if textnames == []:
                 reference_text = None
