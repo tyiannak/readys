@@ -8,6 +8,8 @@ import argparse
 import re
 import os
 from models.utils import test_if_already_loaded
+from pathlib import Path
+import pickle5 as pickle
 
 def load_reference_data(path):
     text = open(path).read()
@@ -160,8 +162,32 @@ def get_asr_features(input_file, google_credentials,
     feature_names = []
     features = []
     # Step 1: speech recognition using google speech API:
-    asr_results, data, n_words, dur = asr.audio_to_asr_text(input_file,
-                                                            google_credentials)
+    # check if asr file already exists
+    folder = os.path.dirname(input_file)
+    file_name = os.path.basename(input_file)
+    file_name = os.path.splitext(file_name)[0]
+    file_name = file_name +  '.asr'
+    full_path = os.path.join(folder, file_name)
+    full_path = Path(full_path)
+    if full_path.is_file():
+        print("--> Loading saved asr")
+        asr_dict = pickle.load(open(full_path, 'rb'))
+        asr_results = asr_dict['timestamps']
+        data = asr_dict['text']
+        n_words = asr_dict['n_words']
+        dur = asr_dict['dur']
+    else:
+        print("--> Audio to asr text via google speech Api")
+        asr_results, data, n_words, dur = asr.audio_to_asr_text(input_file,
+                                                                google_credentials)
+        asr_dict = {}
+        asr_dict['timestamps'] = asr_results
+        asr_dict['text'] = data
+        asr_dict['n_words'] = n_words
+        asr_dict['dur'] = dur
+        with open(full_path, 'wb') as handle:
+            pickle.dump(asr_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
     print(asr_results)
     print(data)
     # Step 2: compute basic text features and metadata:
