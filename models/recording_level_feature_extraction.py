@@ -93,7 +93,8 @@ class RecordingLevelFeatureExtraction(object):
         segmentation_threshold = self.basic_features_params['text_segmentation_params']['segmentation_threshold']
         method = self.basic_features_params['text_segmentation_params']['method_of_segmentation']
         overall_features = []
-
+        audio_models_directory = 'models/' + audio_models_directory
+        text_models_directory = 'models/' + text_models_directory
         #load text classifiers attributes containing embeddings in order not to be loaded for every sample
         classifiers_attributes = []
         for filename in os.listdir(text_models_directory):
