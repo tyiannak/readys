@@ -92,7 +92,7 @@ if __name__ == '__main__':
     parser.add_argument("-c", "--classifier",
                         help="the path of the classifier")
     args = parser.parse_args()
-    classifier, classes, pretrained, embeddings_limit = \
+    classifier, classes, pretrained_path, pretrained, embeddings_limit, _ = \
         load_text_classifier_attributes(args.classifier)
     dictionary, _ = predict(args.input, classifier,
                             classes,
