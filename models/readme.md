@@ -18,12 +18,11 @@ Train the text classifier:
 2. In case of `fasttext`, place the path to the pretrained embeddings vector at the field `pretrained_embedding_vectors`.
 3. In case of SVM, set its parameters.
 4. If you wish to reduce your dataset for debbuging reasons, use the `hop_samples` variable.
-TODO
 5. Run the script: 
 	- case 1: Using the whole embedding model:
-          ```python3 train_text.py -a "input" -p "wiki.en.bin" -o "output_classifier_dictionary_path"```
+        ```python3 train_text.py --annotation valence_transcriptions_labels.csv --pretrained wiki.en.vec -o valence```
     - case 2: Using an embeddings limit in order to avoid memory errors:
-          ```python3 train_text.py -a "input" -p "wiki.en.vec" -o "output_classifier_dictionary_path" -l embeddings_limit ```
+           ```python3 train_text.py --annotation valence_transcriptions_labels.csv --pretrained wiki.en.vec -o valence_500K -l 500000```
    
    Where input is input data in csv format with one column "transcriptions" and one column "labels".
    The output classifier dictionary will be saved at the defined output_classifier_dictionary_path. 

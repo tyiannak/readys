@@ -153,7 +153,8 @@ if __name__ == '__main__':
                         help="the name of final model")
     parser.add_argument('-l', '--embeddings_limit', required=False,
                         default=None, type=int,
-                        help='Strategy to apply in transfer learning: 0 or 1.')
+                        help='Limit of embeddings used. '
+                             'Prefered value: 500000')
 
     args = parser.parse_args()
 
