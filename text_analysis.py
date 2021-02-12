@@ -1,3 +1,12 @@
+"""
+Given an audio file this module is capable of :
+ - using asr.audio_to_asr_text() to transcode speech to text (using google api)
+ - extracting aggregates of text features (text_features()) using
+   models.test_text.predict() for all available segment text models
+ - extracting text reference features if available
+ - merging the above in a recording-level text representation
+"""
+
 import asr
 import text_scoring as ts
 import numpy as np
@@ -170,6 +179,7 @@ def get_asr_features(input_file, google_credentials,
     full_path = os.path.join(folder, file_name)
     full_path = Path(full_path)
     if full_path.is_file():
+        # loading asr from cache
         print("--> Loading saved asr")
         asr_dict = pickle.load(open(full_path, 'rb'))
         asr_results = asr_dict['timestamps']
@@ -185,6 +195,7 @@ def get_asr_features(input_file, google_credentials,
         asr_dict['text'] = data
         asr_dict['n_words'] = n_words
         asr_dict['dur'] = dur
+        # caching asr results
         with open(full_path, 'wb') as handle:
             pickle.dump(asr_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 

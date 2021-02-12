@@ -1,3 +1,11 @@
+"""
+Given an audio file this module is capable of :
+ - extracting aggregates of audio features using
+   models.test_audio.predict_audio_labels for all available segment models
+ - extracting silence features
+ - merging the above in a recording-level audio representation
+"""
+
 import wave
 import numpy as np
 from pyAudioAnalysis import audioSegmentation as aS

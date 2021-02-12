@@ -1,3 +1,8 @@
+"""
+Use segment-level text classifiers to predict segment-level (sentence)
+decisions AND recording-level aggregates
+"""
+
 import sys
 import os
 import argparse
@@ -73,7 +78,9 @@ def predict(data, classifier,classes,pretrained,embeddings_limit):
         feature_extractor = TextFeatureExtraction(pretrained,
                                                   embeddings_limit)
         feature_matrix = feature_extractor.transform(data)
-        dictionary, predicted_labels = basic_segment_classifier_predict(feature_matrix,classifier,classes)
+        dictionary, predicted_labels = \
+            basic_segment_classifier_predict(feature_matrix,
+                                             classifier,classes)
 
     return dictionary , predicted_labels
 
@@ -85,6 +92,10 @@ if __name__ == '__main__':
     parser.add_argument("-c", "--classifier",
                         help="the path of the classifier")
     args = parser.parse_args()
-    classifier, classes, pretrained, embeddings_limit = load_text_classifier_attributes(args.classifier)
-    dictionary, _ = predict(args.input, classifier,classes,pretrained,embeddings_limit)
+    classifier, classes, pretrained, embeddings_limit = \
+        load_text_classifier_attributes(args.classifier)
+    dictionary, _ = predict(args.input, classifier,
+                            classes,
+                            pretrained,
+                            embeddings_limit)
     print(dictionary)

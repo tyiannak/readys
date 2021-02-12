@@ -1,3 +1,8 @@
+"""
+Use segment-level audio classifiers to predict segment-level decisions AND
+recording-level aggregates
+"""
+
 import argparse
 import pickle5 as pickle
 from collections import Counter

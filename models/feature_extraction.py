@@ -1,3 +1,8 @@
+"""
+Contains all wrappers for text and audio segment-levevl
+feature extraction
+"""
+
 import numpy as np
 import glob2 as glob
 from pyAudioAnalysis import MidTermFeatures as aF
