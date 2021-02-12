@@ -10,8 +10,6 @@ Given an audio file this module is capable of :
 import asr
 import text_scoring as ts
 import numpy as np
-import fasttext
-from gensim.models import KeyedVectors
 from models.test_text import predict
 import argparse
 import re
@@ -20,9 +18,11 @@ from models.utils import load_classifiers
 from pathlib import Path
 import pickle5 as pickle
 
+
 def load_reference_data(path):
     text = open(path).read()
     return text
+
 
 def text_preprocess(document):
     """
@@ -38,22 +38,29 @@ def text_preprocess(document):
     document = document.lower()
     return document
 
-def text_segmentation(text,segmentation_threshold=None,method=None,asr_timestamps=None):
-    '''
+
+def text_segmentation(text, segmentation_threshold=None,
+                      method=None, asr_timestamps=None):
+    """
     Break text into segments in accordance with a defined method
     :param text: the text to be segmented
-    :param segmentation_threshold: the duration or magnitude of every segment (for example: 2sec window or 2 words per segment)
+    :param segmentation_threshold: the duration or magnitude of every segment
+           (for example: 2sec window or 2 words per segment)
     :param method:
-    -None: the text will be segmented into sentences based on the punctuation that asr has found
-    -"fixed_size_text" : split text into fixed size segments (fixed number of words)
-    -"fixed_window" : split text into fixed time windows (fixed seconds)
+    -None: the text will be segmented into sentences based on the punctuation
+           that asr has found
+    -"fixed_size_text": split text into fixed size segments
+                        (fixed number of words)
+    -"fixed_window": split text into fixed time windows (fixed seconds)
     :param asr_timestamps: the timestamps of words that asr has defined
     :return:
-    -text_segmented : a list of segments of the text (every element of the list is a string)
-    '''
+      -text_segmented : a list of segments of the text
+                       (every element of the list is a string)
+    """
 
     if method == 'None' or method == None:
-        text_segmented = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s', text)
+        text_segmented = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s',
+                                  text)
     elif method == "fixed_size_text":
         text = text_preprocess(text)
         words = text.split()
@@ -74,7 +81,8 @@ def text_segmentation(text,segmentation_threshold=None,method=None,asr_timestamp
         while start_time_of_window < end_time:
             #iterate through timestamps
             #if the word is included in the time window thw while is activated
-            while word['st'] >= start_time_of_window and word['st'] <= (start_time_of_window + segmentation_threshold):
+            while word['st'] >= start_time_of_window and word['st'] <= \
+                    (start_time_of_window + segmentation_threshold):
                 #save string of the current segment
                 if cur_segment == "":
                     cur_segment = word['word']
@@ -92,16 +100,23 @@ def text_segmentation(text,segmentation_threshold=None,method=None,asr_timestamp
             start_time_of_window += segmentation_threshold
     return text_segmented
 
-def text_features(text,classifiers_attributes,segmentation_threshold=None,method=None,asr_results=None):
+
+def text_features(text, classifiers_attributes, segmentation_threshold=None,
+                  method=None, asr_results=None):
     '''
     Features exported from models(classifiers)
     :param text: the text we want to extract features from (string)
-    :classifiers_attributes: a list of dictionaries with keys : classifier,classes,pretrained_path,pretrained,embeddings_limit,fasttext_model_path.
+    :classifiers_attributes: a list of dictionaries with keys :
+    classifier,classes,pretrained_path,pretrained,embeddings_limit,
+    fasttext_model_path.
      Every dictionary refers to a classifier previously loaded.
-    :param segmentation_threshold: the duration or magnitude of every segment (for example: 2sec window or 2 words per segment)
+    :param segmentation_threshold: the duration or magnitude of every segment
+    (for example: 2sec window or 2 words per segment)
     :param method:
-    -None: the text will be segmented into sentences based on the punctuation that asr has found
-    -"fixed_size_text" : split text into fixed size segments (fixed number of words)
+    -None: the text will be segmented into sentences based on the
+       punctuation that asr has found
+    -"fixed_size_text" : split text into fixed size segments
+      (fixed number of words)
     -"fixed_window" : split text into fixed time windows (fixed seconds)
     :param asr_results: the timestamps of words that asr has defined
     :return:
@@ -115,13 +130,19 @@ def text_features(text,classifiers_attributes,segmentation_threshold=None,method
     #       a predefined path such as segment_models/text
     # TODO: add pretrained model posteriors, e.g. P(y=negative|x) etc
     dictionaries = []
-    text_segmented = text_segmentation(text, segmentation_threshold, method, asr_results)
+    text_segmented = text_segmentation(text, segmentation_threshold, method,
+                                       asr_results)
     print(text_segmented)
 
     #for every text classifier (with embeddings already loaded)
     for classifier_dictionary in classifiers_attributes:
-        classifier, classes, pretrained, embeddings_limit = classifier_dictionary['classifier'],classifier_dictionary['classes'],classifier_dictionary['pretrained'],classifier_dictionary['embeddings_limit']
-        dictionary , _ = predict(text_segmented,classifier,classes,pretrained,embeddings_limit)
+        classifier, classes, pretrained, embeddings_limit = \
+            classifier_dictionary['classifier'],\
+            classifier_dictionary['classes'],\
+            classifier_dictionary['pretrained'],\
+            classifier_dictionary['embeddings_limit']
+        dictionary , _ = predict(text_segmented, classifier, classes,
+                                 pretrained, embeddings_limit)
         dictionaries.append(dictionary)
     for dictionary in dictionaries:
         for label in dictionary:
@@ -133,19 +154,25 @@ def text_features(text,classifiers_attributes,segmentation_threshold=None,method
 
 
 def get_asr_features(input_file, google_credentials,
-                     classifiers_attributes,reference_text=None,segmentation_threshold=None,method=None):
+                     classifiers_attributes, reference_text=None,
+                     segmentation_threshold=None, method=None):
     """
     Extract text features from ASR results of a speech audio file
     :param input_file: path to the audio file
     :param google_credentials: path to the ASR google credentials file
-    :classifiers_attributes: a list of dictionaries with keys : classifier,classes,pretrained_path,pretrained,embeddings_limit,fasttext_model_path.
+    :classifiers_attributes: a list of dictionaries with keys : classifier,
+                             classes, pretrained_path,pretrained,
+                             embeddings_limit, fasttext_model_path.
      Every dictionary refers to a classifier previously loaded.
     :param reference_text:  path to the reference text
-    :param segmentation_threshold: the duration or magnitude of every segment (for example: 2sec window or 2 words per segment)
+    :param segmentation_threshold: the duration or magnitude of every segment
+                            (for example: 2sec window or 2 words per segment)
     :param method:
-    -None: the text will be segmented into sentences based on the punctuation that asr has found
-    -"fixed_size_text" : split text into fixed size segments (fixed number of words)
-    -"fixed_window" : split text into fixed time windows (fixed seconds)
+    - None: the text will be segmented into sentences based on the punctuation
+    that asr has found
+    - "fixed_size_text" : split text into fixed size segments (fixed number of
+    words)
+    - "fixed_window" : split text into fixed time windows (fixed seconds)
     :return:
      - features: list of text features extracted
      - feature_names: list of respective feature names
@@ -172,8 +199,8 @@ def get_asr_features(input_file, google_credentials,
         dur = asr_dict['dur']
     else:
         print("--> Audio to asr text via google speech Api")
-        asr_results, data, n_words, dur = asr.audio_to_asr_text(input_file,
-                                                                google_credentials)
+        asr_results, data, n_words, dur = \
+            asr.audio_to_asr_text(input_file,  google_credentials)
         asr_dict = {}
         asr_dict['timestamps'] = asr_results
         asr_dict['text'] = data
@@ -220,11 +247,9 @@ def get_asr_features(input_file, google_credentials,
                                                      dur)
             length = 0.5
             step = 0.1
-            recalls, precisions, f1s, ref, asr_r = ts.windows(alignment.first.elements,
-                                                              alignment.second.elements,
-                                                              adjusted_results,
-                                                              length,
-                                                              step,dur)
+            recalls, precisions, f1s, ref, asr_r = \
+                ts.windows(alignment.first.elements, alignment.second.elements,
+                           adjusted_results, length, step, dur)
         else:
             length = 0.5
             step = 0.1
@@ -272,17 +297,25 @@ if __name__ == '__main__':
     parser.add_argument("-g", "--google_credentials",required=True,
                         help=".json file with google credentials")
     parser.add_argument("-c", "--classifiers_path",required=True,
-                        help="the directory which contains all text trained classifiers")
+                        help="the directory which contains "
+                             "all text trained classifiers")
     parser.add_argument('-r', '--reference_text', required=False, default=None,
                         help='path of .txt file of reference text')
-    parser.add_argument('-s', '--segmentation_threshold', required=False, default=None, type=int,
+    parser.add_argument('-s', '--segmentation_threshold', required=False,
+                        default=None, type=int,
                         help='number of words or seconds of every text segment')
-    parser.add_argument('-m', '--method_of_segmentation', required=False, default=None,
-                        help='Choice between "fixed_size_text" and "fixed_window"')
+    parser.add_argument('-m', '--method_of_segmentation', required=False,
+                        default=None,
+                        help='Choice between "fixed_size_text" and '
+                             '"fixed_window"')
+
     args = parser.parse_args()
     classifiers_attributes = load_classifiers(args.classifiers_path)
-    features,feature_names,metadata = get_asr_features(args.input, args.google_credentials,classifiers_attributes,args.reference_text,
-                                                       args.segmentation_threshold,args.method_of_segmentation)
+    features, feature_names, metadata = \
+        get_asr_features(args.input, args.google_credentials,
+                         classifiers_attributes, args.reference_text,
+                         args.segmentation_threshold,
+                         args.method_of_segmentation)
     print("Features names:\n {}".format(feature_names))
     print("Features:\n {}".format(features))
     print("Metadata:\n {}".format(metadata))
