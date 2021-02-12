@@ -24,22 +24,6 @@ def load_reference_data(path):
     text = open(path).read()
     return text
 
-
-def load_text_embedding_model(text_embedding_path, embeddings_limit=None):
-    """
-    Loads the fasttext text representation model
-    :param text_embedding_path: path to the fasttext .bin file
-    :param embeddings_limit: limit of the number of embeddings.
-        If None, then the whole set of embeddings is loaded.
-    :return: fasttext model
-    """
-    # download https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.en.300.bin.gz
-    if embeddings_limit:
-        return KeyedVectors.load_word2vec_format(text_embedding_path,
-                                                 limit=embeddings_limit)
-    else:
-        return fasttext.load_model(text_embedding_path)
-
 def text_preprocess(document):
     """
     Basic text preprocessing
