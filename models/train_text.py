@@ -43,8 +43,6 @@ def basic_segment_classifier(data, feature_extractor, out_model):
 
     np.random.seed(seed)
 
-    class_file_name = out_model + "_classenames.csv"
-
     print('--> Loading Dataset...')
     transcriptions, labels, classnames = load_text_dataset(
         data, config['hop_samples'])
@@ -164,10 +162,11 @@ if __name__ == '__main__':
             args.annotation, args.embeddings_limit, args.outputmodelname)
 
     elif config['svm'] or config['xgboost']:
-        word_model = load_text_embeddings(args.pretrained,args.embeddings_limit)
+        word_model = load_text_embeddings(args.pretrained,
+                                          args.embeddings_limit)
         feature_extractor = TextFeatureExtraction(word_model,
                                                   args.embeddings_limit)
         basic_segment_classifier(args.annotation, feature_extractor,
-                          args.outputmodelname)
+                                 args.outputmodelname)
     else:
         print('SVM and fasttext are the only supported classifiers.')
