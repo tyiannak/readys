@@ -21,6 +21,8 @@ from sklearn.ensemble import RandomForestClassifier,GradientBoostingClassifier,E
 from sklearn.neighbors import KNeighborsClassifier
 import fasttext
 from gensim.models import KeyedVectors
+from pathlib import Path
+
 
 def text_preprocess(document):
     """
@@ -71,7 +73,8 @@ def load_text_embeddings(word_model_path,embeddings_limit=None):
         word_model = KeyedVectors.load_word2vec_format(
             word_model_path, limit=embeddings_limit)
     else:
-        word_model = fasttext.load_model(word_model_path)
+        word_model = fasttext.load_model(os.path.join(Path(__file__).parent,
+                                                      word_model_path))
     return word_model
 
 def load_text_classifier_attributes(classifier_path):
@@ -95,7 +98,8 @@ def load_text_classifier_attributes(classifier_path):
         pretrained = load_text_embeddings(pretrained_path,embeddings_limit)
         classifier = model_dict['classifier']
     classes = model_dict['classifier_classnames']
-    return(classifier,classes,pretrained_path,pretrained,embeddings_limit,fasttext_model_path)
+    return classifier, classes, pretrained_path, pretrained, embeddings_limit, \
+           fasttext_model_path
 
 def test_if_already_loaded(model_path,classifiers_attributes):
     '''
