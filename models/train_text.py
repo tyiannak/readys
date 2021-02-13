@@ -24,7 +24,7 @@ else:
 config = config['text_classifier']
 
 
-def basic_segment_classifier(data, feature_extractor, out_model):
+def basic_segment_classifier(data, feature_extractor,pretrained, out_model):
     """
     Reads the config file and trains a classifier. It stores a model_dict
     containing the following information:
@@ -36,7 +36,8 @@ def basic_segment_classifier(data, feature_extractor, out_model):
 
     :param data: csv file with one column transcriptions (text samples)
                    and one column labels
-    :param feature_extractor: an initialized TextFeatureExtraction object
+    :param feature_extractor: an initialized TextFeatureExtraction object 
+    :param pretrained: the path of embeddings model
     :param out_model: name of the output model
     :return None
     """
@@ -60,7 +61,7 @@ def basic_segment_classifier(data, feature_extractor, out_model):
     model_dict['classifier_type'] = 'basic'
     model_dict['classifier'] = clf
     model_dict['classifier_classnames'] = classnames
-    model_dict['embedding_model'] = feature_extractor.embedding_model
+    model_dict['embedding_model'] = pretrained
     model_dict['embeddings_limit'] = feature_extractor.embeddings_limit
 
     out_folder = config['out_folder']
@@ -167,7 +168,7 @@ if __name__ == '__main__':
                                           args.embeddings_limit)
         feature_extractor = TextFeatureExtraction(word_model,
                                                   args.embeddings_limit)
-        basic_segment_classifier(args.annotation, feature_extractor,
+        basic_segment_classifier(args.annotation, feature_extractor,args.pretrained,
                                  args.outputmodelname)
     else:
         print('SVM and fasttext are the only supported classifiers.')
