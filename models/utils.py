@@ -17,7 +17,8 @@ from xgboost import XGBClassifier
 from imblearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 from imblearn.combine import SMOTETomek
-from sklearn.ensemble import RandomForestClassifier,GradientBoostingClassifier,ExtraTreesClassifier
+from sklearn.ensemble import RandomForestClassifier,\
+    GradientBoostingClassifier,ExtraTreesClassifier
 from sklearn.neighbors import KNeighborsClassifier
 import fasttext
 from gensim.models import KeyedVectors
@@ -81,7 +82,8 @@ def load_text_classifier_attributes(classifier_path):
     '''
     Load the attributes of the text classifier that are saved into the classifier
     :param classifier_path: the path of the classifier
-    :return: classifier,classes,pretrained_path,embeddings_limit,fasttext_model_path
+    :return: classifier,classes,pretrained_path,embeddings_limit,
+    fasttext_model_path
     '''
     model_dict = pickle.load(open(classifier_path, 'rb'))
     if model_dict['classifier_type'] == 'fasttext':
@@ -103,17 +105,21 @@ def load_text_classifier_attributes(classifier_path):
 
 def test_if_already_loaded(model_path,classifiers_attributes):
     '''
-    Check if the embedding of a classifier is already loaded in a previoys classifier in order not to load it again and extract the attributes of the classifier
+    Check if the embedding of a classifier is already loaded in a previoys
+    classifier in order not to load it again and extract the attributes of the classifier
     :param model_path: the classifier path
-    :param classifiers_attributes:a list of dictionaries with keys : classifier,classes,pretrained_path,pretrained,embeddings_limit,fasttext_model_path.
+    :param classifiers_attributes:a list of dictionaries with keys :
+    classifier,classes,pretrained_path,pretrained,embeddings_limit,fasttext_model_path.
      Every dictionary refers to a classifier previously loaded.
-    :return: the attributes of the classifier (classifier,classes,pretrained_path,pretrained,embeddings_limit,fasttext_model_path)
+    :return: the attributes of the classifier (classifier,classes,
+    pretrained_path,pretrained,embeddings_limit,fasttext_model_path)
     '''
     model_dict = pickle.load(open(model_path, 'rb'))
     found = False
     if model_dict['classifier_type'] == 'fasttext':
         for classifier in classifiers_attributes:
-            if classifier['fasttext_model_path'] == model_dict['fasttext_model']:
+            if classifier['fasttext_model_path'] == \
+                    model_dict['fasttext_model']:
                 fasttext_model_path = model_dict['fasttext_model']
                 print("--> Copying the fasttext model from previous loading")
                 classifier = classifiers_attributes['classifier']
@@ -124,22 +130,30 @@ def test_if_already_loaded(model_path,classifiers_attributes):
                 found = True
                 break
         if not(found):
-            classifier, classes,pretrained_path, pretrained, embeddings_limit, fasttext_model_path = load_text_classifier_attributes(model_path)
+            classifier, classes,pretrained_path, pretrained, embeddings_limit, \
+            fasttext_model_path = load_text_classifier_attributes(model_path)
     else:
         for classifier in classifiers_attributes:
-            if classifier['embeddings_limit'] == model_dict['embeddings_limit'] and classifier['pretrained_path'] == model_dict['embedding_model']:
+            if classifier['embeddings_limit'] == model_dict['embeddings_limit'] \
+                    and classifier['pretrained_path'] == \
+                    model_dict['embedding_model']:
                 fasttext_model_path = None
                 pretrained_path = model_dict['embedding_model']
                 embeddings_limit = model_dict['embeddings_limit']
-                print("--> Copying the text embeddings model from previous loading")
+                print("--> Copying the text embeddings "
+                      "model from previous loading")
                 pretrained = classifier['pretrained']
                 classifier = model_dict['classifier']
                 classes = model_dict['classifier_classnames']
                 found = True
                 break
         if not(found):
-            classifier, classes, pretrained_path, pretrained, embeddings_limit, fasttext_model_path = load_text_classifier_attributes(model_path)
-    return  classifier, classes, pretrained_path, pretrained, embeddings_limit, fasttext_model_path
+            classifier, classes, pretrained_path, pretrained, \
+            embeddings_limit, fasttext_model_path = \
+                load_text_classifier_attributes(model_path)
+
+    return  classifier, classes, pretrained_path, pretrained, \
+            embeddings_limit, fasttext_model_path
 
 def load_classifiers(text_models_directory):
     classifiers_attributes = []
@@ -147,7 +161,8 @@ def load_classifiers(text_models_directory):
         if filename.endswith(".pt"):
             model_path = os.path.join(text_models_directory, filename)
             dictionary = {}
-            dictionary['classifier'], dictionary['classes'], dictionary['pretrained_path'], dictionary['pretrained'], \
+            dictionary['classifier'], dictionary['classes'], \
+            dictionary['pretrained_path'], dictionary['pretrained'], \
             dictionary['embeddings_limit'], dictionary['fasttext_model_path'] = \
                 test_if_already_loaded(model_path, classifiers_attributes)
             classifiers_attributes.append(dictionary)
@@ -393,7 +408,8 @@ def train_basic_segment_classifier(feature_matrix, labels,
 def train_recording_level_classifier(feature_matrix, labels,
                                      is_imbalanced, config, seed=None):
     """
-        Trains basic (i.e. svm,svm rbf,gradientboosting,knn,randomforest,extratrees) classifier pipeline
+        Trains basic (i.e. svm,svm rbf,gradientboosting,knn,
+        randomforest,extratrees) classifier pipeline
         :param feature_matrix: feature matrix
         :param labels: list of labels
         :param is_imbalanced: True if the dataset is imbalanced, False otherwise
@@ -432,7 +448,8 @@ def train_recording_level_classifier(feature_matrix, labels,
         classifier_parameters = {'n_estimators' :[10, 25, 50, 100, 200, 500]}
 
         parameters_dict = dict(pca__n_components=n_components,
-                               RandomForest__n_estimators=classifier_parameters['n_estimators'])
+                               RandomForest__n_estimators=
+                               classifier_parameters['n_estimators'])
 
         grid_clf = grid_init(clf, "RandomForest", parameters_dict,
                              is_imbalanced, config['metric'], seed)
