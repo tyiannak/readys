@@ -1,3 +1,9 @@
+"""
+Combine functionality from ../text_analysis and ../audio_analysis
+to extract recording-level aggregated feature extraction from both
+audio and text modalities
+"""
+
 import os, sys
 currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
@@ -23,15 +29,20 @@ class RecordingLevelFeatureExtraction(object):
             :param basic_features_params: basic feature extraction parameters
         """
         self.basic_features_params = basic_features_params
-    def fit(self):  # comply with scikit-learn transformer requirement
+
+    def fit(self):
+        # comply with scikit-learn transformer requirement
         return self
-    def transform(self, folder):  # comply with scikit-learn transformer requirement
+
+    def transform(self, folder):
+        # comply with scikit-learn transformer requirement
         """
         Extract features on a dataset which lies under the folder directory
         :param folder: the directory in which the dataset is located.
                         Each subfolder of the folder must contain instances
                         of a specific class.
-        :return: 1. features: features (fused or audio or text) for each dataset instance
+        :return: 1. features: features (fused or audio or text) for each
+                    dataset instance
                  2. labels: list of labels
                  3. idx2folder: a mapping from label numbers to label names
         """
@@ -67,6 +78,7 @@ class RecordingLevelFeatureExtraction(object):
         features = np.asarray(features)
 
         return features, labels, idx2folder
+
     def extract_recording_level_features(self, filenames,textnames):
         """
         Extract unique overall files' features
@@ -89,37 +101,46 @@ class RecordingLevelFeatureExtraction(object):
 
         """
         features_type = self.basic_features_params['features_type']
-        audio_models_directory = self.basic_features_params['audio_models_folder']
+        audio_models_directory = \
+            self.basic_features_params['audio_models_folder']
         text_models_directory = self.basic_features_params['text_models_folder']
         google_credentials = self.basic_features_params['google_credentials']
-        segmentation_threshold = self.basic_features_params['text_segmentation_params']['segmentation_threshold']
-        method = self.basic_features_params['text_segmentation_params']['method_of_segmentation']
+        segmentation_threshold = \
+            self.basic_features_params['text_segmentation_params']
+        ['segmentation_threshold']
+        method = self.basic_features_params['text_segmentation_params']
+        ['method_of_segmentation']
         overall_features = []
         audio_models_directory = audio_models_directory
         text_models_directory =  text_models_directory
-        #load text classifiers attributes containing embeddings in order not to be loaded for every sample
+        # load text classifiers attributes containing embeddings
+        # in order not to be loaded for every sample
         classifiers_attributes = load_classifiers(text_models_directory)
-        for count,file in enumerate(filenames):
+
+        for count, file in enumerate(filenames):
             if textnames == []:
                 reference_text = None
             else:
                 reference_text = textnames[count]
             if features_type == "fused":
-                audio_features, audio_features_names, _ = audio_based_feature_extraction(file,
-                                                                                         audio_models_directory)
-                text_features, text_features_names, _ = get_asr_features(file, google_credentials,
-                                                                         classifiers_attributes, reference_text,
-                                                                         segmentation_threshold, method)
+                audio_features, audio_features_names, _ = \
+                    audio_based_feature_extraction(file, audio_models_directory)
+                text_features, text_features_names, _ = \
+                    get_asr_features(file, google_credentials,
+                                     classifiers_attributes, reference_text,
+                                     segmentation_threshold, method)
 
                 file_recording_level_features = audio_features + text_features
                 file_features_names = audio_features_names + text_features_names
             elif features_type == "audio":
-                file_recording_level_features, file_features_names, _ = audio_based_feature_extraction(file,
-                                                                                             audio_models_directory)
+                file_recording_level_features, file_features_names, _ = \
+                    audio_based_feature_extraction(file, audio_models_directory)
             elif features_type == "text":
-                file_recording_level_features, file_features_names, _ = get_asr_features(file, google_credentials,
-                                                                               classifiers_attributes, reference_text,
-                                                                               segmentation_threshold, method)
-            file_recording_level_features = np.asarray(file_recording_level_features)
+                file_recording_level_features, file_features_names, _ = \
+                    get_asr_features(file, google_credentials,
+                                     classifiers_attributes, reference_text,
+                                     segmentation_threshold, method)
+            file_recording_level_features = \
+                np.asarray(file_recording_level_features)
             overall_features.append(file_recording_level_features)
         return overall_features , file_features_names
