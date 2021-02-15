@@ -417,7 +417,7 @@ def train_recording_level_classifier(feature_matrix, labels,
         :param seed: seed
         :return: the trained pipeline
         """
-    n_components = [0.98, 0.99, 'mle', None]
+    n_components = [None]
     if config['classifier_type'] == 'svm_rbf':
         clf = svm.SVC(kernel='rbf',
                       class_weight='balanced')
