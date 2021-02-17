@@ -84,11 +84,16 @@ def audio_based_feature_extraction(input_file,models_directory):
     # A. silence features
     fs, dur = get_wav_properties(input_file)
     fs, x = aio.read_audio_file(input_file)
-
+    print(input_file)
+    print(len(x) / fs)
     # get the silence estimates using pyAudioAnalysis semisupervised approach
     # for different windows and steps
-    seg_limits_short = aS.silence_removal(x, fs, 0.5, 0.5, 0.5)
-    seg_limits_long = aS.silence_removal(x, fs, 1.0, 1.0, 0.5)
+    if dur < 5:
+        seg_limits_short = [[0, dur]]
+        seg_limits_long = [[0, dur]]
+    else:
+        seg_limits_short = aS.silence_removal(x, fs, 0.5, 0.25, 0.5)
+        seg_limits_long = aS.silence_removal(x, fs, 1.0, 0.25, 0.5)
 
     # short windows
     silence_features_short, number_of_pauses_short, total_speech_short = \
