@@ -17,7 +17,6 @@ from models.utils import text_preprocess
 from models.utils import folders_mapping
 
 
-
 class TextFeatureExtraction(object):
     def __init__(self, word_model,embeddings_limit=None):
         """

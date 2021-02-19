@@ -7,6 +7,10 @@ import numpy as np
 import pandas as pd
 from num2words import num2words
 from collections import Counter
+from collections import defaultdict
+from sklearn.metrics import make_scorer
+from sklearn.metrics import f1_score
+from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
@@ -62,6 +66,7 @@ def text_preprocess(document):
 
     return preprocessed_text
 
+
 def load_text_embeddings(word_model_path,embeddings_limit=None):
     '''
     Loading the embedding
@@ -77,6 +82,7 @@ def load_text_embeddings(word_model_path,embeddings_limit=None):
         word_model = fasttext.load_model(os.path.join(Path(__file__).parent,
                                                       word_model_path))
     return word_model
+
 
 def load_text_classifier_attributes(classifier_path):
     '''
@@ -102,6 +108,7 @@ def load_text_classifier_attributes(classifier_path):
     classes = model_dict['classifier_classnames']
     return classifier, classes, pretrained_path, pretrained, embeddings_limit, \
            fasttext_model_path
+
 
 def test_if_already_loaded(model_path,classifiers_attributes):
     '''
@@ -155,6 +162,7 @@ def test_if_already_loaded(model_path,classifiers_attributes):
     return  classifier, classes, pretrained_path, pretrained, \
             embeddings_limit, fasttext_model_path
 
+
 def load_classifiers(text_models_directory):
     classifiers_attributes = []
     for filename in os.listdir(text_models_directory):
@@ -167,6 +175,7 @@ def load_classifiers(text_models_directory):
                 test_if_already_loaded(model_path, classifiers_attributes)
             classifiers_attributes.append(dictionary)
     return classifiers_attributes
+
 
 def load_text_dataset(data, hop_samples=None):
     """
@@ -305,7 +314,7 @@ def save_model(model_dict,out_folder, out_model=None, name=None):
 
 
 def grid_init(clf, clf_name, parameters_dict,
-              is_imbalanced, scoring, seed=None):
+              is_imbalanced, scoring, refit, seed=None):
     """
     Initializes a grid using:
         1. a pipeline containing:
@@ -349,9 +358,43 @@ def grid_init(clf, clf_name, parameters_dict,
 
     grid_clf = GridSearchCV(
         pipe, parameters_dict, cv=cv,
-        scoring=scoring, n_jobs=-1)
+        scoring=scoring, refit=refit, n_jobs=-1)
 
     return grid_clf
+
+
+def f1_macro(y_true, y_pred):
+    return f1_score(y_true, y_pred, average="macro")
+
+
+def _count_score(y_true, y_pred, label1=0, label2=1):
+    return sum((y == label1 and pred == label2)
+                for y, pred in zip(y_true, y_pred))
+
+
+def print_grid_results(grid, metric, labels_set):
+
+    num_splits = 2 * 3  # splits of cross validation
+
+    clf_params = grid.best_params_
+    clf_score = grid.best_score_
+    clf_stdev = grid.cv_results_['std_test_{}'.format(metric)][grid.best_index_]
+    print("--> Parameters of best svm model: {}".format(clf_params))
+    print("--> Best validation score:      {:0.5f} (+/-{:0.5f})".format(
+        clf_score, clf_stdev))
+
+    best_index = grid.best_index_
+    confusion = defaultdict(lambda: defaultdict(int))
+    for label1 in labels_set:
+        for label2 in labels_set:
+            for i in range(num_splits):
+                key = 'split%s_test_count_%s_%s' % (i, label1, label2)
+                val = int(grid.cv_results_[key][best_index])
+                confusion[label1][label2] += val
+    confusion = {key: dict(value) for key, value in confusion.items()}
+    confusion = pd.DataFrame.from_dict(confusion)
+    print("--> Confusion matrix of the best classifier (measured on the validation set):")
+    print(confusion)
 
 
 def train_basic_segment_classifier(feature_matrix, labels,
@@ -368,6 +411,24 @@ def train_basic_segment_classifier(feature_matrix, labels,
 
     n_components = [0.98, 0.99, 'mle', None]
 
+    if config['metric'] == 'f1_macro':
+        metric = make_scorer(f1_macro)
+    elif config['metric'] == 'accuracy':
+        metric = make_scorer(accuracy_score)
+    else:
+        print('Only supported evaluation metrics are: f1_macro, accuracy')
+        return -1
+
+    labels_set = sorted(set(labels))
+    scorer = {}
+    for label1 in labels_set:
+        for label2 in labels_set:
+            count_score = make_scorer(_count_score, label1=label1,
+                                      label2=label2)
+            scorer['count_%s_%s' % (label1, label2)] = count_score
+
+    scorer[config['metric']] = metric
+
     if config['svm']:
         clf = svm.SVC(kernel=config['svm_parameters']['kernel'],
                       class_weight='balanced')
@@ -379,14 +440,16 @@ def train_basic_segment_classifier(feature_matrix, labels,
                                SVM__C=svm_parameters['C'])
 
         grid_clf = grid_init(clf, "SVM", parameters_dict,
-                             is_imbalanced, config['metric'], seed)
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
         print("--> Training SVM classifier using GridSearchCV")
 
     elif config['xgboost']:
         xgb = XGBClassifier(n_estimators=100)
         parameters_dict = dict(pca__n_components=n_components)
         grid_clf = grid_init(xgb, "XGBOOST", parameters_dict,
-                             is_imbalanced, config['metric'], seed)
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
         print("--> Training XGBOOST classifier using GridSearchCV")
 
     else:
@@ -396,14 +459,10 @@ def train_basic_segment_classifier(feature_matrix, labels,
     grid_clf.fit(feature_matrix, labels)
 
     clf_svc = grid_clf.best_estimator_
-    clf_params = grid_clf.best_params_
-    clf_score = grid_clf.best_score_
-    clf_stdev = grid_clf.cv_results_['std_test_score'][grid_clf.best_index_]
-    print("--> Parameters of best svm model: {}".format(clf_params))
-    print("--> Best validation score:      {:0.5f} (+/-{:0.5f})".format(
-        clf_score, clf_stdev))
+    print_grid_results(grid_clf, config['metric'], labels_set)
 
     return clf_svc
+
 
 def train_recording_level_classifier(feature_matrix, labels,
                                      is_imbalanced, config, seed=None):
@@ -417,6 +476,25 @@ def train_recording_level_classifier(feature_matrix, labels,
         :param seed: seed
         :return: the trained pipeline
         """
+
+    if config['metric'] == 'f1_macro':
+        metric = make_scorer(f1_macro)
+    elif config['metric'] == 'accuracy':
+        metric = make_scorer(accuracy_score)
+    else:
+        print('Only supported evaluation metrics are: f1_macro, accuracy')
+        return -1
+
+    labels_set = sorted(set(labels))
+    scorer = {}
+    for label1 in labels_set:
+        for label2 in labels_set:
+            count_score = make_scorer(_count_score, label1=label1,
+                                      label2=label2)
+            scorer['count_%s_%s' % (label1, label2)] = count_score
+
+    scorer[config['metric']] = metric
+
     n_components = [None]
     if config['classifier_type'] == 'svm_rbf':
         clf = svm.SVC(kernel='rbf',
@@ -429,7 +507,8 @@ def train_recording_level_classifier(feature_matrix, labels,
                                SVM_RBF__C=svm_parameters['C'])
 
         grid_clf = grid_init(clf, "SVM_RBF", parameters_dict,
-                             is_imbalanced, config['metric'], seed)
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
         print("--> Training SVM rbf classifier using GridSearchCV")
     elif config['classifier_type'] == 'svm':
         clf = svm.SVC(class_weight='balanced')
@@ -441,7 +520,8 @@ def train_recording_level_classifier(feature_matrix, labels,
                                SVM__C=svm_parameters['C'])
 
         grid_clf = grid_init(clf, "SVM", parameters_dict,
-                             is_imbalanced, config['metric'], seed)
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
         print("--> Training SVM classifier using GridSearchCV")
     elif config['classifier_type'] == 'randomforest':
         clf = RandomForestClassifier()
@@ -452,7 +532,8 @@ def train_recording_level_classifier(feature_matrix, labels,
                                classifier_parameters['n_estimators'])
 
         grid_clf = grid_init(clf, "RandomForest", parameters_dict,
-                             is_imbalanced, config['metric'], seed)
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
         print("--> Training Random Forest classifier using GridSearchCV")
     elif config['classifier_type'] == 'knn':
         clf = KNeighborsClassifier()
@@ -460,7 +541,8 @@ def train_recording_level_classifier(feature_matrix, labels,
         parameters_dict = dict(pca__n_components=n_components,
                                Knn__n_neighbors=classifier_parameters['n_neighbors'])
         grid_clf = grid_init(clf, "Knn", parameters_dict,
-                             is_imbalanced, config['metric'], seed)
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
         print("--> Training Knn classifier using GridSearchCV")
     elif config['classifier_type'] == 'gradientboosting':
         clf = GradientBoostingClassifier()
@@ -470,7 +552,8 @@ def train_recording_level_classifier(feature_matrix, labels,
                                GradientBoosting__n_estimators=classifier_parameters['n_estimators'])
 
         grid_clf = grid_init(clf, "GradientBoosting", parameters_dict,
-                             is_imbalanced, config['metric'], seed)
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
         print("--> Training Gradient Boosting classifier using GridSearchCV")
     elif config['classifier_type'] == 'extratrees':
         clf = ExtraTreesClassifier()
@@ -480,17 +563,13 @@ def train_recording_level_classifier(feature_matrix, labels,
                                Extratrees__n_estimators=classifier_parameters['n_estimators'])
 
         grid_clf = grid_init(clf, "Extratrees", parameters_dict,
-                             is_imbalanced, config['metric'], seed)
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
         print("--> Training Extra Trees classifier using GridSearchCV")
 
     grid_clf.fit(feature_matrix, labels)
 
     clf_svc = grid_clf.best_estimator_
-    clf_params = grid_clf.best_params_
-    clf_score = grid_clf.best_score_
-    clf_stdev = grid_clf.cv_results_['std_test_score'][grid_clf.best_index_]
-    print("--> Parameters of best model: {}".format(clf_params))
-    print("--> Best validation score:      {:0.5f} (+/-{:0.5f})".format(
-        clf_score, clf_stdev))
+    print_grid_results(grid_clf, config['metric'], labels_set)
 
     return clf_svc
