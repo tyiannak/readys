@@ -1,3 +1,7 @@
+"""
+This script is used to test a trained recording-level classifier
+"""
+
 import pickle5 as pickle
 import sys
 import os
@@ -5,7 +9,8 @@ import os
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.realpath(__file__)), '../'))
 
-from models.recording_level_feature_extraction import RecordingLevelFeatureExtraction
+from models.recording_level_feature_extraction \
+    import RecordingLevelFeatureExtraction
 import argparse
 import yaml
 import os
@@ -22,12 +27,11 @@ else:
 config = conf['recording_level_classifier']
 
 def predict_recording_level_label(audio_file, model_path):
-    '''
-
+    """
     :param audio_file: the path of audio file to test
     :param model_path: the path of the recording level model to use
     :return: class_name : the predicted class of the input file
-    '''
+    """
 
     if not os.path.isfile(model_path):
         print("mtFileClassificationError: input model_type not found!")
@@ -40,7 +44,8 @@ def predict_recording_level_label(audio_file, model_path):
     model_dict = pickle.load(open(model_path, 'rb'))
     basic_features_params['features_type'] = model_dict['features_type']
     basic_features_params['reference_text'] = model_dict['reference_text']
-    basic_features_params['text_segmentation_params'] = model_dict['text_segmentation_params']
+    basic_features_params['text_segmentation_params'] =\
+        model_dict['text_segmentation_params']
 
     #feature_extraction
     feature_extractor = RecordingLevelFeatureExtraction(basic_features_params)
@@ -52,7 +57,9 @@ def predict_recording_level_label(audio_file, model_path):
         textfile = [os.path.join(folder, file_name)]
     else:
         textfile = []
-    feature_matrix , _ = feature_extractor.extract_recording_level_features([audio_file],textfile)
+    feature_matrix, _ = \
+        feature_extractor.extract_recording_level_features([audio_file],
+                                                           textfile)
 
     classifier = model_dict['classifier']
     class_mapping = model_dict['class_mapping']
@@ -66,8 +73,9 @@ if __name__ == '__main__':
     parser.add_argument("-i", "--input",required=True,
                         help="the path of audio input file")
     parser.add_argument("-m", "--model_path", required=True,
-                        help="the path of the model that we are gonna use to test")
+                        help="the path of the model that "
+                             "we are gonna use to test")
 
     args = parser.parse_args()
-    class_name = predict_recording_level_label(args.input,args.model_path)
+    class_name = predict_recording_level_label(args.input, args.model_path)
     print(class_name)
