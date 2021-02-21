@@ -1,13 +1,16 @@
 import re
 import csv
 import os
-import pickle
+import pickle5 as pickle
 import time
-import yaml
 import numpy as np
 import pandas as pd
-import num2words
+from num2words import num2words
 from collections import Counter
+from collections import defaultdict
+from sklearn.metrics import make_scorer
+from sklearn.metrics import f1_score
+from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
@@ -18,6 +21,12 @@ from xgboost import XGBClassifier
 from imblearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 from imblearn.combine import SMOTETomek
+from sklearn.ensemble import RandomForestClassifier,\
+    GradientBoostingClassifier,ExtraTreesClassifier
+from sklearn.neighbors import KNeighborsClassifier
+import fasttext
+from gensim.models import KeyedVectors
+from pathlib import Path
 
 
 def text_preprocess(document):
@@ -49,13 +58,123 @@ def text_preprocess(document):
 
     for index, word in enumerate(after_spliting):
         if word.isdigit():
-            after_spliting[index] = num2words(word)
+            after_spliting[index] = num2words(int(word))
     document = ' '.join(after_spliting)
 
     # Converting to Lowercase
     preprocessed_text = document.lower()
 
     return preprocessed_text
+
+
+def load_text_embeddings(word_model_path,embeddings_limit=None):
+    '''
+    Loading the embedding
+    :param word_model_path: the embedding path
+    :param embeddings_limit: the embedding limit
+    :return: the embedding model loaded
+    '''
+    print("--> Loading the text embeddings model")
+    if embeddings_limit:
+        word_model = KeyedVectors.load_word2vec_format(
+            word_model_path, limit=embeddings_limit)
+    else:
+        word_model = fasttext.load_model(os.path.join(Path(__file__).parent,
+                                                      word_model_path))
+    return word_model
+
+
+def load_text_classifier_attributes(classifier_path):
+    '''
+    Load the attributes of the text classifier that are saved into the classifier
+    :param classifier_path: the path of the classifier
+    :return: classifier,classes,pretrained_path,embeddings_limit,
+    fasttext_model_path
+    '''
+    model_dict = pickle.load(open(classifier_path, 'rb'))
+    if model_dict['classifier_type'] == 'fasttext':
+        fasttext_model_path = model_dict['fasttext_model']
+        print("--> Loading the fasttext model")
+        classifier = fasttext.load_model(fasttext_model_path)
+        embeddings_limit = None
+        pretrained = None
+        pretrained_path = None
+    else:
+        fasttext_model_path = None
+        pretrained_path = model_dict['embedding_model']
+        embeddings_limit = model_dict['embeddings_limit']
+        pretrained = load_text_embeddings(pretrained_path,embeddings_limit)
+        classifier = model_dict['classifier']
+    classes = model_dict['classifier_classnames']
+    return classifier, classes, pretrained_path, pretrained, embeddings_limit, \
+           fasttext_model_path
+
+
+def test_if_already_loaded(model_path,classifiers_attributes):
+    '''
+    Check if the embedding of a classifier is already loaded in a previoys
+    classifier in order not to load it again and extract the attributes of the classifier
+    :param model_path: the classifier path
+    :param classifiers_attributes:a list of dictionaries with keys :
+    classifier,classes,pretrained_path,pretrained,embeddings_limit,fasttext_model_path.
+     Every dictionary refers to a classifier previously loaded.
+    :return: the attributes of the classifier (classifier,classes,
+    pretrained_path,pretrained,embeddings_limit,fasttext_model_path)
+    '''
+    model_dict = pickle.load(open(model_path, 'rb'))
+    found = False
+    if model_dict['classifier_type'] == 'fasttext':
+        for classifier in classifiers_attributes:
+            if classifier['fasttext_model_path'] == \
+                    model_dict['fasttext_model']:
+                fasttext_model_path = model_dict['fasttext_model']
+                print("--> Copying the fasttext model from previous loading")
+                classifier = classifiers_attributes['classifier']
+                embeddings_limit = None
+                pretrained = None
+                pretrained_path = None
+                classes = model_dict['classifier_classnames']
+                found = True
+                break
+        if not(found):
+            classifier, classes,pretrained_path, pretrained, embeddings_limit, \
+            fasttext_model_path = load_text_classifier_attributes(model_path)
+    else:
+        for classifier in classifiers_attributes:
+            if classifier['embeddings_limit'] == model_dict['embeddings_limit'] \
+                    and classifier['pretrained_path'] == \
+                    model_dict['embedding_model']:
+                fasttext_model_path = None
+                pretrained_path = model_dict['embedding_model']
+                embeddings_limit = model_dict['embeddings_limit']
+                print("--> Copying the text embeddings "
+                      "model from previous loading")
+                pretrained = classifier['pretrained']
+                classifier = model_dict['classifier']
+                classes = model_dict['classifier_classnames']
+                found = True
+                break
+        if not(found):
+            classifier, classes, pretrained_path, pretrained, \
+            embeddings_limit, fasttext_model_path = \
+                load_text_classifier_attributes(model_path)
+
+    return  classifier, classes, pretrained_path, pretrained, \
+            embeddings_limit, fasttext_model_path
+
+
+def load_classifiers(text_models_directory):
+    classifiers_attributes = []
+    for filename in os.listdir(text_models_directory):
+        if filename.endswith(".pt"):
+            model_path = os.path.join(text_models_directory, filename)
+            dictionary = {}
+            dictionary['classifier'], dictionary['classes'], \
+            dictionary['pretrained_path'], dictionary['pretrained'], \
+            dictionary['embeddings_limit'], dictionary['fasttext_model_path'] = \
+                test_if_already_loaded(model_path, classifiers_attributes)
+            classifiers_attributes.append(dictionary)
+    return classifiers_attributes
 
 
 def load_text_dataset(data, hop_samples=None):
@@ -159,7 +278,7 @@ def split_data(x, y, test_size=0.2, fasttext_data=False, seed=None):
         return x_train, x_test, y_train, y_test
 
 
-def save_model(model_dict, out_model=None, name=None, is_text=True):
+def save_model(model_dict,out_folder, out_model=None, name=None):
     """
     Saves a model dictionary
     :param model_dict: model dictionary
@@ -169,17 +288,7 @@ def save_model(model_dict, out_model=None, name=None, is_text=True):
                     False if it is an audio classifier
     """
     script_dir = os.path.dirname(__file__)
-    if not script_dir:
-        with open(r'./config.yaml') as file:
-            config = yaml.load(file, Loader=yaml.FullLoader)
-    else:
-        with open(script_dir + '/config.yaml') as file:
-            config = yaml.load(file, Loader=yaml.FullLoader)
 
-    if is_text:
-        out_folder = config["text_classifier"]["out_folder"]
-    else:
-        out_folder = config["audio_classifier"]["out_folder"]
     if out_model is None:
         timestamp = time.ctime()
         out_model = "{}_{}.pt".format(name, timestamp)
@@ -205,7 +314,7 @@ def save_model(model_dict, out_model=None, name=None, is_text=True):
 
 
 def grid_init(clf, clf_name, parameters_dict,
-              is_imbalanced, scoring, seed=None):
+              is_imbalanced, scoring, refit, seed=None):
     """
     Initializes a grid using:
         1. a pipeline containing:
@@ -245,13 +354,47 @@ def grid_init(clf, clf_name, parameters_dict,
             ('scaler', scaler), ('thresholder', thresholder),
             ('pca', pca), (clf_name, clf)], memory='sklearn_tmp_memory')
 
-    cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3)
+    cv = RepeatedStratifiedKFold(n_splits=2, n_repeats=3)
 
     grid_clf = GridSearchCV(
         pipe, parameters_dict, cv=cv,
-        scoring=scoring, n_jobs=-1)
+        scoring=scoring, refit=refit, n_jobs=-1)
 
     return grid_clf
+
+
+def f1_macro(y_true, y_pred):
+    return f1_score(y_true, y_pred, average="macro")
+
+
+def _count_score(y_true, y_pred, label1=0, label2=1):
+    return sum((y == label1 and pred == label2)
+                for y, pred in zip(y_true, y_pred))
+
+
+def print_grid_results(grid, metric, labels_set):
+
+    num_splits = 2 * 3  # splits of cross validation
+
+    clf_params = grid.best_params_
+    clf_score = grid.best_score_
+    clf_stdev = grid.cv_results_['std_test_{}'.format(metric)][grid.best_index_]
+    print("--> Parameters of best svm model: {}".format(clf_params))
+    print("--> Best validation score:      {:0.5f} (+/-{:0.5f})".format(
+        clf_score, clf_stdev))
+
+    best_index = grid.best_index_
+    confusion = defaultdict(lambda: defaultdict(int))
+    for label1 in labels_set:
+        for label2 in labels_set:
+            for i in range(num_splits):
+                key = 'split%s_test_count_%s_%s' % (i, label1, label2)
+                val = int(grid.cv_results_[key][best_index])
+                confusion[label1][label2] += val
+    confusion = {key: dict(value) for key, value in confusion.items()}
+    confusion = pd.DataFrame.from_dict(confusion)
+    print("--> Confusion matrix of the best classifier (measured on the validation set):")
+    print(confusion)
 
 
 def train_basic_segment_classifier(feature_matrix, labels,
@@ -268,6 +411,24 @@ def train_basic_segment_classifier(feature_matrix, labels,
 
     n_components = [0.98, 0.99, 'mle', None]
 
+    if config['metric'] == 'f1_macro':
+        metric = make_scorer(f1_macro)
+    elif config['metric'] == 'accuracy':
+        metric = make_scorer(accuracy_score)
+    else:
+        print('Only supported evaluation metrics are: f1_macro, accuracy')
+        return -1
+
+    labels_set = sorted(set(labels))
+    scorer = {}
+    for label1 in labels_set:
+        for label2 in labels_set:
+            count_score = make_scorer(_count_score, label1=label1,
+                                      label2=label2)
+            scorer['count_%s_%s' % (label1, label2)] = count_score
+
+    scorer[config['metric']] = metric
+
     if config['svm']:
         clf = svm.SVC(kernel=config['svm_parameters']['kernel'],
                       class_weight='balanced')
@@ -279,14 +440,16 @@ def train_basic_segment_classifier(feature_matrix, labels,
                                SVM__C=svm_parameters['C'])
 
         grid_clf = grid_init(clf, "SVM", parameters_dict,
-                             is_imbalanced, config['metric'], seed)
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
         print("--> Training SVM classifier using GridSearchCV")
 
     elif config['xgboost']:
         xgb = XGBClassifier(n_estimators=100)
         parameters_dict = dict(pca__n_components=n_components)
         grid_clf = grid_init(xgb, "XGBOOST", parameters_dict,
-                             is_imbalanced, config['metric'], seed)
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
         print("--> Training XGBOOST classifier using GridSearchCV")
 
     else:
@@ -296,11 +459,117 @@ def train_basic_segment_classifier(feature_matrix, labels,
     grid_clf.fit(feature_matrix, labels)
 
     clf_svc = grid_clf.best_estimator_
-    clf_params = grid_clf.best_params_
-    clf_score = grid_clf.best_score_
-    clf_stdev = grid_clf.cv_results_['std_test_score'][grid_clf.best_index_]
-    print("--> Parameters of best svm model: {}".format(clf_params))
-    print("--> Best validation score:      {:0.5f} (+/-{:0.5f})".format(
-        clf_score, clf_stdev))
+    print_grid_results(grid_clf, config['metric'], labels_set)
+
+    return clf_svc
+
+
+def train_recording_level_classifier(feature_matrix, labels,
+                                     is_imbalanced, config, seed=None):
+    """
+        Trains basic (i.e. svm,svm rbf,gradientboosting,knn,
+        randomforest,extratrees) classifier pipeline
+        :param feature_matrix: feature matrix
+        :param labels: list of labels
+        :param is_imbalanced: True if the dataset is imbalanced, False otherwise
+        :param config: configuration file
+        :param seed: seed
+        :return: the trained pipeline
+        """
+
+    if config['metric'] == 'f1_macro':
+        metric = make_scorer(f1_macro)
+    elif config['metric'] == 'accuracy':
+        metric = make_scorer(accuracy_score)
+    else:
+        print('Only supported evaluation metrics are: f1_macro, accuracy')
+        return -1
+
+    labels_set = sorted(set(labels))
+    scorer = {}
+    for label1 in labels_set:
+        for label2 in labels_set:
+            count_score = make_scorer(_count_score, label1=label1,
+                                      label2=label2)
+            scorer['count_%s_%s' % (label1, label2)] = count_score
+
+    scorer[config['metric']] = metric
+
+    n_components = [None]
+    if config['classifier_type'] == 'svm_rbf':
+        clf = svm.SVC(kernel='rbf',
+                      class_weight='balanced')
+        svm_parameters = {'gamma': ['auto', 'scale'],
+                          'C': [1e-1, 1, 5, 1e1]}
+
+        parameters_dict = dict(pca__n_components=n_components,
+                               SVM_RBF__gamma=svm_parameters['gamma'],
+                               SVM_RBF__C=svm_parameters['C'])
+
+        grid_clf = grid_init(clf, "SVM_RBF", parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
+        print("--> Training SVM rbf classifier using GridSearchCV")
+    elif config['classifier_type'] == 'svm':
+        clf = svm.SVC(class_weight='balanced')
+        svm_parameters = {'gamma': ['auto', 'scale'],
+                          'C': [1e-1, 1, 5, 1e1]}
+
+        parameters_dict = dict(pca__n_components=n_components,
+                               SVM__gamma=svm_parameters['gamma'],
+                               SVM__C=svm_parameters['C'])
+
+        grid_clf = grid_init(clf, "SVM", parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
+        print("--> Training SVM classifier using GridSearchCV")
+    elif config['classifier_type'] == 'randomforest':
+        clf = RandomForestClassifier()
+        classifier_parameters = {'n_estimators' :[10, 25, 50, 100, 200, 500]}
+
+        parameters_dict = dict(pca__n_components=n_components,
+                               RandomForest__n_estimators=
+                               classifier_parameters['n_estimators'])
+
+        grid_clf = grid_init(clf, "RandomForest", parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
+        print("--> Training Random Forest classifier using GridSearchCV")
+    elif config['classifier_type'] == 'knn':
+        clf = KNeighborsClassifier()
+        classifier_parameters = {'n_neighbors': [1, 3, 5, 7, 9, 11, 13, 15]}
+        parameters_dict = dict(pca__n_components=n_components,
+                               Knn__n_neighbors=classifier_parameters['n_neighbors'])
+        grid_clf = grid_init(clf, "Knn", parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
+        print("--> Training Knn classifier using GridSearchCV")
+    elif config['classifier_type'] == 'gradientboosting':
+        clf = GradientBoostingClassifier()
+        classifier_parameters = {'n_estimators': [10, 25, 50, 100, 200, 500]}
+
+        parameters_dict = dict(pca__n_components=n_components,
+                               GradientBoosting__n_estimators=classifier_parameters['n_estimators'])
+
+        grid_clf = grid_init(clf, "GradientBoosting", parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
+        print("--> Training Gradient Boosting classifier using GridSearchCV")
+    elif config['classifier_type'] == 'extratrees':
+        clf = ExtraTreesClassifier()
+        classifier_parameters = {'n_estimators': [10, 25, 50, 100, 200, 500]}
+
+        parameters_dict = dict(pca__n_components=n_components,
+                               Extratrees__n_estimators=classifier_parameters['n_estimators'])
+
+        grid_clf = grid_init(clf, "Extratrees", parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
+        print("--> Training Extra Trees classifier using GridSearchCV")
+
+    grid_clf.fit(feature_matrix, labels)
+
+    clf_svc = grid_clf.best_estimator_
+    print_grid_results(grid_clf, config['metric'], labels_set)
 
     return clf_svc

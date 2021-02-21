@@ -6,6 +6,7 @@ import yaml
 import fasttext
 from gensim.models import KeyedVectors
 from feature_extraction import TextFeatureExtraction
+from utils import load_text_embeddings
 from utils import load_text_dataset, check_balance,\
     convert_to_fasttext_data, save_model,\
     train_basic_segment_classifier
@@ -23,7 +24,7 @@ else:
 config = config['text_classifier']
 
 
-def basic_segment_classifier(data, feature_extractor, out_model):
+def basic_segment_classifier(data, feature_extractor,pretrained, out_model):
     """
     Reads the config file and trains a classifier. It stores a model_dict
     containing the following information:
@@ -35,14 +36,13 @@ def basic_segment_classifier(data, feature_extractor, out_model):
 
     :param data: csv file with one column transcriptions (text samples)
                    and one column labels
-    :param feature_extractor: an initialized TextFeatureExtraction object
+    :param feature_extractor: an initialized TextFeatureExtraction object 
+    :param pretrained: the path of embeddings model
     :param out_model: name of the output model
     :return None
     """
 
     np.random.seed(seed)
-
-    class_file_name = out_model + "_classenames.csv"
 
     print('--> Loading Dataset...')
     transcriptions, labels, classnames = load_text_dataset(
@@ -61,13 +61,14 @@ def basic_segment_classifier(data, feature_extractor, out_model):
     model_dict['classifier_type'] = 'basic'
     model_dict['classifier'] = clf
     model_dict['classifier_classnames'] = classnames
-    model_dict['embedding_model'] = feature_extractor.embedding_model
+    model_dict['embedding_model'] = pretrained
     model_dict['embeddings_limit'] = feature_extractor.embeddings_limit
 
+    out_folder = config['out_folder']
     if out_model is None:
-        save_model(model_dict, name="basic_classifier")
+        save_model(model_dict,out_folder, name="basic_classifier")
     else:
-        save_model(model_dict, out_model=out_model)
+        save_model(model_dict,out_folder, out_model=out_model)
 
     return None
 
@@ -153,7 +154,8 @@ if __name__ == '__main__':
                         help="the name of final model")
     parser.add_argument('-l', '--embeddings_limit', required=False,
                         default=None, type=int,
-                        help='Strategy to apply in transfer learning: 0 or 1.')
+                        help='Limit of embeddings used. '
+                             'Prefered value: 500000')
 
     args = parser.parse_args()
 
@@ -162,9 +164,11 @@ if __name__ == '__main__':
             args.annotation, args.embeddings_limit, args.outputmodelname)
 
     elif config['svm'] or config['xgboost']:
-        feature_extractor = TextFeatureExtraction(args.pretrained,
+        word_model = load_text_embeddings(args.pretrained,
+                                          args.embeddings_limit)
+        feature_extractor = TextFeatureExtraction(word_model,
                                                   args.embeddings_limit)
-        basic_segment_classifier(args.annotation, feature_extractor,
-                          args.outputmodelname)
+        basic_segment_classifier(args.annotation, feature_extractor,args.pretrained,
+                                 args.outputmodelname)
     else:
         print('SVM and fasttext are the only supported classifiers.')

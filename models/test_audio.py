@@ -1,7 +1,18 @@
+"""
+Use segment-level audio classifiers to predict segment-level decisions AND
+recording-level aggregates
+"""
+
 import argparse
 import pickle5 as pickle
 from collections import Counter
-from feature_extraction import AudioFeatureExtraction
+import os
+import sys
+
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), '../'))
+
+from models.feature_extraction import AudioFeatureExtraction
 
 
 def predict_audio_labels(filename, classifier_path):
