@@ -354,7 +354,7 @@ def grid_init(clf, clf_name, parameters_dict,
             ('scaler', scaler), ('thresholder', thresholder),
             ('pca', pca), (clf_name, clf)], memory='sklearn_tmp_memory')
 
-    cv = RepeatedStratifiedKFold(n_splits=2, n_repeats=3)
+    cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3)
 
     grid_clf = GridSearchCV(
         pipe, parameters_dict, cv=cv,
@@ -433,7 +433,7 @@ def train_basic_segment_classifier(feature_matrix, labels,
         clf = svm.SVC(kernel=config['svm_parameters']['kernel'],
                       class_weight='balanced')
         svm_parameters = {'gamma': ['auto', 'scale'],
-                          'C': [1e-1, 1, 5, 1e1]}
+                          'C': [0.001, 0.01,  0.5, 1.0, 5.0, 10.0, 20.0]}
 
         parameters_dict = dict(pca__n_components=n_components,
                                SVM__gamma=svm_parameters['gamma'],
