@@ -53,4 +53,4 @@ Where:
 - aggregate_annotations: the csv file which contains the winner annotations per sample (aggregated_ClassX.csv which has been produced by the aggregate_annotations.py) 
 - input_data: the directory with all audio files collected 
 
-The above command will create a directory datasets/name_of_classification_task which will contain all samples from aggregated_ClassX.csv organised in subfolders.
+The above command will create a directory datasets/name_of_classification_task which will contain all samples from aggregated_ClassX.csv organized in subfolders.
