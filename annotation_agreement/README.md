@@ -20,7 +20,7 @@ python3 aggregate_annotations.py -c class_number -a annotators
 
 Where: 
 
--class_number is an integer (1,2 or 3) that defines the the classification task that we want to aggregate the annotations for. 
+-class_number is an integer (1,2 or 3) that defines the classification task we want to aggregate the annotations for. 
 
 -annotators is an integer that defines the annotator's threshold. For example, if annotators = 3 then we take into account only the samples that are annotated by 3 or more annotators. 
 
@@ -38,4 +38,4 @@ When running the above command, the following files will be produced:
 -plots/class_distr_afterClassX.png : a figure of number of annotations per class for classification task X (taking into account the resulting winner_annotations) 
 
 In addition to the aforementioned generated files, some statistics will be printed in the command line.
-An example of these resulting statistics can be found here: https://docs.google.com/document/d/1KIPBDB2i6NJzQsRfwPmQAiHGYrPSUDPeLyEDy3Cqqiw/edit?usp=sharing
+An example of these results can be found here: https://docs.google.com/document/d/1KIPBDB2i6NJzQsRfwPmQAiHGYrPSUDPeLyEDy3Cqqiw/edit?usp=sharing
