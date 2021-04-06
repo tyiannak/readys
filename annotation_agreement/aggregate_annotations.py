@@ -216,5 +216,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--class_number",type=int, required=True,
                         help="choose one of the three classes: 1 (expressive) ,2 (easy to follow),3 (enjoy)")
+    parser.add_argument("-a", "--annotators", type=int, required=True,
+                        help="minimum number of annotators to take into account")
     args = parser.parse_args()
-    report_annotations('annotations_database.txt',args.class_number,3)
+    report_annotations('annotations_database.txt',args.class_number,args.annotators)
