@@ -38,4 +38,19 @@ When running the above command, the following files will be produced:
 - plots/class_distr_afterClassX.png : a figure of number of annotations per class for classification task X (taking into account the resulting winner_annotations) 
 
 In addition to the aforementioned generated files, some statistics will be printed in the command line.
-An example of these results can be found here: https://docs.google.com/document/d/1KIPBDB2i6NJzQsRfwPmQAiHGYrPSUDPeLyEDy3Cqqiw/edit?usp=sharing
+An example of these results can be found here: https://docs.google.com/document/d/1KIPBDB2i6NJzQsRfwPmQAiHGYrPSUDPeLyEDy3Cqqiw/edit?usp=sharing 
+
+### recording_level_dataset_parser.py 
+This file is responsible for producing dataset in the form of subfolders per class, after the aggrement of annotation has been completed. 
+
+To run this file: 
+```
+python3 recording_level_dataset_parser.py -n name_of_classification_task -aa aggregate_annotations -i input_data
+``` 
+Where: 
+
+- name_of_classification_task: the name of the classification task e.g. expressive/enjoyable etc 
+- aggregate_annotations: the csv file which contains the winner annotations per sample (aggregated_ClassX.csv which has been produced by the aggregate_annotations.py) 
+- input_data: the directory with all audio files collected 
+
+The above command will create a directory datasets/name_of_classification_task which will contain all samples from aggregated_ClassX.csv organised in subfolders.
