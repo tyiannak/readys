@@ -41,7 +41,7 @@ In addition to the aforementioned generated files, some statistics will be print
 An example of these results can be found here: https://docs.google.com/document/d/1KIPBDB2i6NJzQsRfwPmQAiHGYrPSUDPeLyEDy3Cqqiw/edit?usp=sharing 
 
 ### recording_level_dataset_parser.py 
-This file is responsible for producing dataset in the form of subfolders per class, after the aggrement of annotation has been completed. 
+This file is responsible for producing dataset in the form of subfolders per class, after the aggregation of annotations has been completed. 
 
 To run this file: 
 ```
