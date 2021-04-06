@@ -20,9 +20,9 @@ python3 aggregate_annotations.py -c class_number -a annotators
 
 Where: 
 
-- class_number is an integer (1,2 or 3) that defines the classification task we want to aggregate the annotations for. 
+- class_number: an integer (1,2 or 3) that defines the classification task we want to aggregate the annotations for. 
 
-- annotators is an integer that defines the annotator's threshold. For example, if annotators = 3 then we take into account only the samples that are annotated by 3 or more annotators. 
+- annotators: an integer that defines the annotator's threshold. For example, if annotators = 3 then we take into account only the samples that are annotated by 3 or more annotators. 
 
 ### results
 When running the above command, the following files will be produced: 
