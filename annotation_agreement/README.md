@@ -2,7 +2,7 @@
 The purpose of this code is to aggregate the annotations in a manner of agreement between the annotators, so that we can come up with one label per sample and produce some statistics about the agreement of annotations.
 
 ### annotations_database.txt 
-This file contains the annotations as they are selected from the UI. Each annotation occupies a line with elements : Timestamp,Sample_name,Class1,Class2,Class3 that are seperated by a comma. The elements Class1,Class2 and Class3 refer to the three different classification tasks. 
+This file contains the annotations as selected by users on the UI. Each annotation occupies a line with elements : Timestamp,Sample_name,Class1,Class2,Class3 that are seperated by a comma. The elements Class1,Class2 and Class3 refer to the three different classification tasks. 
 
 An example of such a file is given. 
 
