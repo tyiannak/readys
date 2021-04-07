@@ -167,41 +167,35 @@ def report_annotations(file, class_number,annotators):
     count = ann_gr_1['Number_annotations'].count()
     print('\n1 annotation:%s %.2f%%' % (count,
                                          numpy.divide(count,
-                                                      df['Number_annotations'].
-                                                      sum())*100))
+                                                      df['Winner_annotation'].shape[0])*100))
 
     ann_gr_2 = df[df['Number_annotations'] == 2]
     count = ann_gr_2['Number_annotations'].count()
     print('2 annotations:%s %.2f%%' % (count,
                                        numpy.divide(count,
-                                                    df['Number_annotations'].
-                                                    sum())*100))
+                                                    df['Winner_annotation'].shape[0])*100))
 
     ann_gr_3 = df[df['Number_annotations'] == 3]
     count = ann_gr_3['Number_annotations'].count()
     print('3 annotations:%s %.2f%%' % (count,
                                        numpy.divide(count,
-                                                    df['Number_annotations'].
-                                                    sum())*100))
+                                                    df['Winner_annotation'].shape[0])*100))
 
     ann_gr_4 = df[df['Number_annotations'] == 4]
     count = ann_gr_4['Number_annotations'].count()
     print('4 annotations:%s %.2f%%' % (count,
                                        numpy.divide(count,
-                                                    df['Number_annotations'].
-                                                    sum())*100))
+                                                    df['Winner_annotation'].shape[0])*100))
     ann_gr_5 = df[df['Number_annotations'] == 5]
     count = ann_gr_5['Number_annotations'].count()
     print('5 annotations:%s %.2f%%' % (count,
                                        numpy.divide(count,
-                                                    df['Number_annotations'].
-                                                    sum()) * 100))
+                                                    df['Winner_annotation'].shape[0]) * 100))
     ann_gr_6 = df[df['Number_annotations'] == 6]
     count = ann_gr_6['Number_annotations'].count()
     print('6 annotations:%s %.2f%%' % (count,
                                        numpy.divide(count,
-                                                    df['Number_annotations'].
-                                                    sum()) * 100))
+                                                    df['Winner_annotation'].shape[0]) * 100))
 
     ann_gr = df[df['Number_annotations'] >= annotators]
 
