@@ -132,7 +132,7 @@ def text_features(text, classifiers_attributes, segmentation_threshold=None,
     dictionaries = []
     text_segmented = text_segmentation(text, segmentation_threshold, method,
                                        asr_results)
-    print(text_segmented)
+    #print(text_segmented)
 
     #for every text classifier (with embeddings already loaded)
     for classifier_dictionary in classifiers_attributes:
@@ -152,6 +152,40 @@ def text_features(text, classifiers_attributes, segmentation_threshold=None,
             features.append(feature_value)
     return features, features_names
 
+def basic_text_features(data,dur):
+    '''
+    Extract basic text features (high level text features)
+    :param data: string of the whole text
+    :param dur: duration of the text in terms of time
+    :return: basic text features (word rate,unique rate and histogram)
+    '''
+    #word rate
+    words_list = re.findall(r'\w+', data.lower())
+    len_of_wordslist = len(words_list)
+    word_rate = float("{:.2f}".format(len_of_wordslist / (dur / 60.0)))
+    basic_feature_names = ["Word rate (words/min)"]
+
+    #num_of_unique words / duration
+    unique = set(words_list)
+    num_of_unique = len(unique)
+    unique_rate = round(num_of_unique / len_of_wordslist,2)
+    basic_features = [word_rate,unique_rate]
+    basic_feature_names.append("Unique words rate (num_of_unique_words/sec)")
+
+    #10-bin histogram of word frequencies
+    wordfreq = []
+    for w in words_list:
+        wordfreq.append(words_list.count(w))
+
+    normalized_wordfreq = [freq / len_of_wordslist for freq in wordfreq]
+    histogram_of_wordfreq, hist_range = np.histogram(normalized_wordfreq, bins=10, range=(0, 0.1), density=True)
+    histogram_of_wordfreq = [round(prob * 0.01, 2) for prob in histogram_of_wordfreq]
+    for i, k in enumerate(hist_range):
+        if k != 0:
+            freq_center = str(round((hist_range[i] + hist_range[i - 1]) / 2, 3))
+            basic_feature_names.append('hist_center_word_freq_' + freq_center)
+    basic_features += histogram_of_wordfreq
+    return basic_features,basic_feature_names
 
 def get_asr_features(input_file, google_credentials,
                      classifiers_attributes, reference_text=None,
@@ -210,13 +244,15 @@ def get_asr_features(input_file, google_credentials,
         with open(full_path, 'wb') as handle:
             pickle.dump(asr_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    print(asr_results)
-    print(data)
-    # Step 2: compute basic text features and metadata:
-    word_rate = float("{:.2f}".format(n_words / (dur / 60.0)))
     metadata = {"asr timestamps": asr_results,
                 "Number of words": n_words,
                 "Total duration (sec)": dur}
+
+    # Step 2: compute basic text features :
+    basic_features , basic_feature_names = basic_text_features(data,dur)
+
+    feature_names += basic_feature_names
+    features += basic_features
 
     # Step 3: compute reference text - related features
     # (if reference text is available)
@@ -273,10 +309,8 @@ def get_asr_features(input_file, google_credentials,
         metadata["temporal_asr"] = asr_r
 
 
-    feature_names.append("Word rate (words/min)")
-    features.append(word_rate)
 
-    # Pure-text-based features:
+    #Step 4: compute segment-level-classifiers based features:
 
     features_text, features_names_text = text_features(data,
                                                        classifiers_attributes,
@@ -286,7 +320,6 @@ def get_asr_features(input_file, google_credentials,
 
     features += features_text
     feature_names += features_names_text
-
     return features, feature_names, metadata
 
     
