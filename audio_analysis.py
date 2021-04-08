@@ -51,20 +51,15 @@ def silence_features(segment_limits,dur):
         total_speech = total_speech + word_speech
         counter = counter + 1
     speech_ratio = total_speech / dur
-    speech_ratio = float("{:.2f}".format(speech_ratio))
     number_of_pauses = len(silence_durations)
     silence_durations = np.array(silence_durations)
     std = np.std(silence_durations)
-    std = float("{:.2f}".format(std))
     average_silence_dur = np.mean(silence_durations)
-    average_silence_dur = float("{:.2f}".format(average_silence_dur))
-    silence_seg_per_minute = float("{:.2f}".format(number_of_pauses /
-                                                   (dur / 60.0)))
+    silence_seg_per_minute = number_of_pauses /(dur / 60.0)
     if total_speech == 0:
         word_rate_in_speech = 0
     else:
         word_rate_in_speech = len(segment_limits) / total_speech
-    word_rate_in_speech = float("{:.2f}".format(word_rate_in_speech))
     silence_features = [average_silence_dur,
                         silence_seg_per_minute,
                         std,
