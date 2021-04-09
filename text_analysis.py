@@ -178,8 +178,10 @@ def basic_text_features(data,dur):
         wordfreq.append(words_list.count(w))
 
     normalized_wordfreq = [freq / (len_of_wordslist + np.finfo(np.float).eps) for freq in wordfreq]
-    histogram_of_wordfreq, hist_range = np.histogram(normalized_wordfreq, bins=10, range=(0, 0.1), density=True)
-    histogram_of_wordfreq = [prob * 0.01 for prob in histogram_of_wordfreq]
+    histogram_of_wordfreq, hist_range = np.histogram(normalized_wordfreq, bins=10, range=(0, 0.1))
+    histogram_of_wordfreq = histogram_of_wordfreq / (histogram_of_wordfreq.sum() + 0.00000001)
+    print(histogram_of_wordfreq)
+    histogram_of_wordfreq = [prob for prob in histogram_of_wordfreq]
     for i, k in enumerate(hist_range):
         if k != 0:
             freq_center = str(round((hist_range[i] + hist_range[i - 1]) / 2, 3))
