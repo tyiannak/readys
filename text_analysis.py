@@ -162,13 +162,13 @@ def basic_text_features(data,dur):
     #word rate
     words_list = re.findall(r'\w+', data.lower())
     len_of_wordslist = len(words_list)
-    word_rate = len_of_wordslist / (dur / 60.0)
+    word_rate = len_of_wordslist / ((dur / 60.0) + np.finfo(np.float).eps)
     basic_feature_names = ["Word rate (words/min)"]
 
     #num_of_unique words / duration
     unique = set(words_list)
     num_of_unique = len(unique)
-    unique_rate = num_of_unique / len_of_wordslist
+    unique_rate = num_of_unique / (len_of_wordslist + np.finfo(np.float).eps)
     basic_features = [word_rate,unique_rate]
     basic_feature_names.append("Unique words rate (num_of_unique_words/sec)")
 
@@ -177,7 +177,7 @@ def basic_text_features(data,dur):
     for w in words_list:
         wordfreq.append(words_list.count(w))
 
-    normalized_wordfreq = [freq / len_of_wordslist for freq in wordfreq]
+    normalized_wordfreq = [freq / (len_of_wordslist + np.finfo(np.float).eps) for freq in wordfreq]
     histogram_of_wordfreq, hist_range = np.histogram(normalized_wordfreq, bins=10, range=(0, 0.1), density=True)
     histogram_of_wordfreq = [prob * 0.01 for prob in histogram_of_wordfreq]
     for i, k in enumerate(hist_range):
