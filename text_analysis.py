@@ -103,7 +103,7 @@ def text_segmentation(text, segmentation_threshold=None,
 
 def text_features(text, classifiers_attributes, segmentation_threshold=None,
                   method=None, asr_results=None):
-    '''
+    """
     Features exported from models(classifiers)
     :param text: the text we want to extract features from (string)
     :classifiers_attributes: a list of dictionaries with keys :
@@ -122,7 +122,7 @@ def text_features(text, classifiers_attributes, segmentation_threshold=None,
     :return:
     - features: list of text features extracted
     - features_names: list of respective feature names
-    '''
+    """
     features = []
     features_names = []
 
@@ -152,42 +152,51 @@ def text_features(text, classifiers_attributes, segmentation_threshold=None,
             features.append(feature_value)
     return features, features_names
 
-def basic_text_features(data,dur):
-    '''
+
+def basic_text_features(data, dur):
+    """
     Extract basic text features (high level text features)
     :param data: string of the whole text
-    :param dur: duration of the text in terms of time
-    :return: basic text features (word rate,unique rate and histogram)
-    '''
-    #word rate
+    :param dur: duration of the text in terms of time (seconds)
+    :return: basic text features (word rate, unique word rate and
+    histogram of unique word frequencies)
+    """
+    # A. word rate
     words_list = re.findall(r'\w+', data.lower())
     len_of_wordslist = len(words_list)
     word_rate = len_of_wordslist / ((dur / 60.0) + np.finfo(np.float).eps)
     basic_feature_names = ["Word rate (words/min)"]
 
-    #num_of_unique words / duration
+    # B. num_of_unique words / duration
     unique = set(words_list)
     num_of_unique = len(unique)
     unique_rate = num_of_unique / (len_of_wordslist + np.finfo(np.float).eps)
     basic_features = [word_rate,unique_rate]
     basic_feature_names.append("Unique words rate (num_of_unique_words/sec)")
 
-    #10-bin histogram of word frequencies
+    # C. 10-bin histogram of word frequencies
     wordfreq = []
     for w in words_list:
         wordfreq.append(words_list.count(w))
 
-    normalized_wordfreq = [freq / (len_of_wordslist + np.finfo(np.float).eps) for freq in wordfreq]
-    histogram_of_wordfreq, hist_range = np.histogram(normalized_wordfreq, bins=10, range=(0, 0.1))
-    histogram_of_wordfreq = histogram_of_wordfreq / (histogram_of_wordfreq.sum() + 0.00000001)
-    print(histogram_of_wordfreq)
+    normalized_wordfreq = [freq / (len_of_wordslist + np.finfo(np.float).eps)
+                           for freq in wordfreq]
+    histogram_of_wordfreq, hist_range = np.histogram(normalized_wordfreq,
+                                                     bins=10, range=(0, 0.1))
+    # normalize histograms
+    histogram_of_wordfreq = histogram_of_wordfreq / \
+                            (histogram_of_wordfreq.sum() +
+                             np.finfo(np.float).eps)
+    # convert to list
     histogram_of_wordfreq = [prob for prob in histogram_of_wordfreq]
+    # generate histogram feature names
     for i, k in enumerate(hist_range):
         if k != 0:
             freq_center = str(round((hist_range[i] + hist_range[i - 1]) / 2, 3))
             basic_feature_names.append('hist_center_word_freq_' + freq_center)
     basic_features += histogram_of_wordfreq
-    return basic_features,basic_feature_names
+    return basic_features, basic_feature_names
+
 
 def get_asr_features(input_file, google_credentials,
                      classifiers_attributes, reference_text=None,
@@ -222,7 +231,7 @@ def get_asr_features(input_file, google_credentials,
     folder = os.path.dirname(input_file)
     file_name = os.path.basename(input_file)
     file_name = os.path.splitext(file_name)[0]
-    file_name = file_name +  '.asr'
+    file_name = file_name + '.asr'
     full_path = os.path.join(folder, file_name)
     full_path = Path(full_path)
     if full_path.is_file():
@@ -310,16 +319,12 @@ def get_asr_features(input_file, google_credentials,
         metadata["temporal_ref"] = ref
         metadata["temporal_asr"] = asr_r
 
-
-
-    #Step 4: compute segment-level-classifiers based features:
-
+    # Step 4: compute segment-level-classifiers based features:
     features_text, features_names_text = text_features(data,
                                                        classifiers_attributes,
                                                        segmentation_threshold,
                                                        method,
                                                        asr_results)
-
     features += features_text
     feature_names += features_names_text
     return features, feature_names, metadata
