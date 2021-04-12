@@ -184,9 +184,8 @@ def basic_text_features(data, dur):
     histogram_of_wordfreq, hist_range = np.histogram(normalized_wordfreq,
                                                      bins=10, range=(0, 0.1))
     # normalize histograms
-    histogram_of_wordfreq = histogram_of_wordfreq / \
-                            (histogram_of_wordfreq.sum() +
-                             np.finfo(np.float).eps)
+    histogram_of_wordfreq = histogram_of_wordfreq / (
+            histogram_of_wordfreq.sum() + np.finfo(np.float).eps)
     # convert to list
     histogram_of_wordfreq = [prob for prob in histogram_of_wordfreq]
     # generate histogram feature names
@@ -260,7 +259,7 @@ def get_asr_features(input_file, google_credentials,
                 "Total duration (sec)": dur}
 
     # Step 2: compute basic text features :
-    basic_features , basic_feature_names = basic_text_features(data,dur)
+    basic_features, basic_feature_names = basic_text_features(data, dur)
 
     feature_names += basic_feature_names
     features += basic_features
@@ -332,11 +331,11 @@ def get_asr_features(input_file, google_credentials,
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input",required=True,
+    parser.add_argument("-i", "--input", required=True,
                         help="path of wav file")
-    parser.add_argument("-g", "--google_credentials",required=True,
+    parser.add_argument("-g", "--google_credentials", required=True,
                         help=".json file with google credentials")
-    parser.add_argument("-c", "--classifiers_path",required=True,
+    parser.add_argument("-c", "--classifiers_path", required=True,
                         help="the directory which contains "
                              "all text trained classifiers")
     parser.add_argument('-r', '--reference_text', required=False, default=None,
