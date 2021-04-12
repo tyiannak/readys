@@ -374,7 +374,7 @@ def _count_score(y_true, y_pred, label1=0, label2=1):
 
 def print_grid_results(grid, metric, labels_set):
 
-    num_splits = 2 * 3  # splits of cross validation
+    num_splits = 5 * 3  # splits of cross validation
 
     clf_params = grid.best_params_
     clf_score = grid.best_score_
@@ -392,7 +392,9 @@ def print_grid_results(grid, metric, labels_set):
                 val = int(grid.cv_results_[key][best_index])
                 confusion[label1][label2] += val
     confusion = {key: dict(value) for key, value in confusion.items()}
-    confusion = pd.DataFrame.from_dict(confusion)
+
+    confusion = pd.DataFrame.from_dict(confusion,orient='index')
+
     print("--> Confusion matrix of the best classifier (measured on the validation set):")
     print(confusion)
 

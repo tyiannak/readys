@@ -1,0 +1,3 @@
+Timestamp,Username,Sample_name,Class1,Class2,Class3
+2021-04-01 00:08:27.608846,user1,12.wav,2,3,2
+
