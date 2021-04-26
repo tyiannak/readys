@@ -45,13 +45,15 @@ def text_preprocess(document):
     document = re.sub(r'\W', ' ', str(document))
 
     # Remove single characters from the start
-    document = re.sub(r'\^[a-zA-Z]\s+', ' ', document)
+    # document = re.sub(r'\^[a-zA-Z]\s+', ' ', document)
 
+    # Remove leading and trailing whitespaces 
+    document.strip()
     # Substituting multiple spaces with single space
     document = re.sub(r'\s+', ' ', document, flags=re.I)
 
     # Removing prefixed 'b'
-    document = re.sub(r'^b\s+', '', document)
+    #document = re.sub(r'^b\s+', '', document)
 
     # Numbers to words
     after_spliting = document.split()
