@@ -90,11 +90,11 @@ def bert_embeddings(sentences, labels, device="cpu"):
         outputs = bert(seq, attention_mask=attn_masks)
 
         batch_embeddings.append(outputs[-1].detach().cpu().numpy())
-        batch_labels.append(local_labels)
+        batch_labels.append(local_labels.numpy())
 
     embeddings = [item for sublist in batch_embeddings for item in sublist]
     labels = [item for sublist in batch_labels for item in sublist]
-
+    print(labels)
     return embeddings, labels
 
 
