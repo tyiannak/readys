@@ -9,12 +9,92 @@ from pyAudioAnalysis import MidTermFeatures as aF
 from pyAudioAnalysis import audioBasicIO as aIO
 import os
 import sys
+import torch
+from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
+from transformers import BertTokenizer
+from transformers import BertModel
+from collections import OrderedDict
+
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.realpath(__file__)), '../'))
 
 from models.utils import text_preprocess
 from models.utils import folders_mapping
+from models.utils import max_sentence_length, seed_torch, bert_dataframe
+
+class SSTDataset(Dataset):
+
+    def __init__(self, df, maxlen):
+
+        self.df = df
+        self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        self.maxlen = maxlen
+
+    def __len__(self):
+        return len(self.df)
+
+    def __getitem__(self, index):
+
+        sentence = self.df.loc[index, 'sentence']
+        label = self.df.loc[index, 'label']
+
+        tokens = self.tokenizer.tokenize(sentence)
+        tokens = ['[CLS]'] + tokens + ['[SEP]']
+        if len(tokens) < self.maxlen:
+            tokens = tokens + ['[PAD]' for _ in range(
+                self.maxlen - len(tokens))]
+        else:
+            tokens = tokens[:self.maxlen-1] + ['[SEP]']
+
+        tokens_ids = self.tokenizer.convert_tokens_to_ids(tokens)
+        tokens_ids_tensor = torch.tensor(tokens_ids)
+
+        # Obtaining the attention mask i.e a tensor containing 1s for no padded tokens and 0s for padded ones
+        attn_mask = (tokens_ids_tensor != 0).long()
+        return tokens_ids_tensor, attn_mask, label
+
+
+def bert_embeddings(sentences, labels, device="cpu"):
+    """
+    Extract embeddings using BERT
+    :param sentences: list of sentences
+    :param labels: list of corresponing sentence labels
+    :param device: device to run
+    :return: - embeddings: list of embeddigs per sentence
+             - labels: list of labels
+    """
+
+    print("--> Extracting Bert Embeddings")
+    print("---> Running on: {}".format(device))
+
+    torch.cuda.empty_cache()
+    seed_torch()
+
+    df = bert_dataframe(sentences, labels)
+
+    maxlen = max_sentence_length(sentences)
+    dataset = SSTDataset(df, maxlen=maxlen)
+    data_loader = DataLoader(dataset, batch_size=32)
+    bert = BertModel.from_pretrained('bert-base-uncased')
+
+    bert.to(device)
+
+    batch_embeddings = []
+    batch_labels = []
+    for seq, attn_masks, local_labels in data_loader:
+        seq, attn_masks = seq.to(device), \
+                                  attn_masks.to(device)
+        outputs = bert(seq, attention_mask=attn_masks)
+
+        batch_embeddings.append(outputs[-1].detach().cpu().numpy())
+        batch_labels.append(local_labels)
+
+    embeddings = [item for sublist in batch_embeddings for item in sublist]
+    labels = [item for sublist in batch_labels for item in sublist]
+
+    return embeddings, labels
 
 
 class TextFeatureExtraction(object):

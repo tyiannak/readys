@@ -27,6 +27,7 @@ from sklearn.neighbors import KNeighborsClassifier
 import fasttext
 from gensim.models import KeyedVectors
 from pathlib import Path
+import torch
 
 
 def text_preprocess(document):
@@ -229,6 +230,33 @@ def convert_to_fasttext_data(labels, transcriptions, filename):
               quotechar="", escapechar=" ")
 
 
+def max_sentence_length(sentences):
+    lengths = [len(sentence.split()) for sentence in sentences]
+    mu = np.mean(lengths)
+    std = np.std(lengths)
+    maximum = max(lengths)
+
+    print("----> Documents' lengths: max = {}, mean = {}, std = {}".format(
+        maximum, mu, std))
+
+    forced_length = int(mu + std)
+    print("----> Forcing {} max length.".format(forced_length))
+
+    return forced_length
+
+
+def seed_torch():
+    torch.manual_seed(42)
+    torch.cuda.manual_seed_all(42)
+    torch.backends.cudnn.deterministic = True
+
+
+def bert_dataframe(sentences, labels):
+    d = {'sentence': sentences, 'label': labels}
+    df = pd.DataFrame(d)
+    return df
+
+
 def check_balance(labels):
     """
     Checks if a dataset is imbalanced
@@ -338,7 +366,7 @@ def grid_init(clf, clf_name, parameters_dict,
     if is_imbalanced:
         print('--> The dataset is imbalanced. SMOTETomek will'
               ' be applied to balance the classes')
-        sampler = SMOTETomek(random_state=seed, n_jobs=-1)
+        sampler = SMOTETomek(random_state=seed)
 
     scaler = StandardScaler()
 
