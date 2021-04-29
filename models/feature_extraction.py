@@ -22,7 +22,8 @@ sys.path.insert(0, os.path.join(
 
 from models.utils import text_preprocess
 from models.utils import folders_mapping
-from models.utils import max_sentence_length, seed_torch, bert_dataframe
+from models.utils import bert_preprocessing, seed_torch
+
 
 class SSTDataset(Dataset):
 
@@ -72,9 +73,9 @@ def bert_embeddings(sentences, labels, device="cpu"):
     torch.cuda.empty_cache()
     seed_torch()
 
-    df = bert_dataframe(sentences, labels)
+    df, le, maxlen = bert_preprocessing(sentences, labels)
+    print("----> Class mapping: {}".format(le.classes_))
 
-    maxlen = max_sentence_length(sentences)
     dataset = SSTDataset(df, maxlen=maxlen)
     data_loader = DataLoader(dataset, batch_size=32)
     bert = BertModel.from_pretrained('bert-base-uncased')

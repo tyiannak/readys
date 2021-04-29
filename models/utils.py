@@ -16,6 +16,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn import preprocessing
 from sklearn import svm
 from xgboost import XGBClassifier
 from imblearn.pipeline import Pipeline
@@ -255,6 +256,19 @@ def bert_dataframe(sentences, labels):
     d = {'sentence': sentences, 'label': labels}
     df = pd.DataFrame(d)
     return df
+
+
+def bert_preprocessing(sentences, labels):
+
+    le = preprocessing.LabelEncoder()
+    le.fit(labels)
+    labels = le.transform(labels)
+
+    df = bert_dataframe(sentences, labels)
+
+    max_len = max_sentence_length(sentences)
+
+    return df, le, max_len
 
 
 def check_balance(labels):
