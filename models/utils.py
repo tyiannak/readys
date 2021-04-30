@@ -241,8 +241,7 @@ def max_sentence_length(sentences):
         maximum, mu, std))
 
     forced_length = int(mu + std)
-    print("----> Forcing {} max length.".format(forced_length))
-
+   
     return maximum
 
 

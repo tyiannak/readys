@@ -79,7 +79,7 @@ def bert_embeddings(sentences, labels, device="cpu"):
     dataset = SSTDataset(df, maxlen=max_len)
 
     a = int(max_len / 32)
-    batch_size = int(32 / pow(2, a-1))
+    batch_size = int(32 / pow(2, a))
 
     data_loader = DataLoader(dataset, batch_size=batch_size)
     bert = BertModel.from_pretrained('bert-base-cased')
