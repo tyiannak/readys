@@ -73,10 +73,10 @@ def bert_embeddings(sentences, labels, device="cpu"):
     torch.cuda.empty_cache()
     seed_torch()
 
-    df, le, maxlen = bert_preprocessing(sentences, labels)
+    df, le, max_len = bert_preprocessing(sentences, labels)
     print("----> Class mapping: {}".format(le.classes_))
 
-    dataset = SSTDataset(df, maxlen=maxlen)
+    dataset = SSTDataset(df, maxlen=max_len)
 
     a = int(max_len / 32)
     batch_size = int(32 / pow(2, a-1))

@@ -69,7 +69,8 @@ def basic_segment_classifier(data, feature_extractor, pretrained, out_model):
     model_dict['classifier'] = clf
     model_dict['classifier_classnames'] = classnames
     model_dict['embedding_model'] = pretrained
-    model_dict['embeddings_limit'] = feature_extractor.embeddings_limit
+    if pretrained != "bert":
+        model_dict['embeddings_limit'] = feature_extractor.embeddings_limit
 
     out_folder = config['out_folder']
     if out_model is None:
