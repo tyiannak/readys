@@ -30,7 +30,7 @@ class SSTDataset(Dataset):
     def __init__(self, df, maxlen):
 
         self.df = df
-        self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        self.tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
         self.maxlen = maxlen
 
     def __len__(self):
@@ -77,8 +77,12 @@ def bert_embeddings(sentences, labels, device="cpu"):
     print("----> Class mapping: {}".format(le.classes_))
 
     dataset = SSTDataset(df, maxlen=maxlen)
-    data_loader = DataLoader(dataset, batch_size=32)
-    bert = BertModel.from_pretrained('bert-base-uncased')
+
+    a = int(max_len / 32)
+    batch_size = int(32 / pow(2, a-1))
+
+    data_loader = DataLoader(dataset, batch_size=batch_size)
+    bert = BertModel.from_pretrained('bert-base-cased')
 
     bert.to(device)
 
@@ -94,12 +98,11 @@ def bert_embeddings(sentences, labels, device="cpu"):
 
     embeddings = [item for sublist in batch_embeddings for item in sublist]
     labels = [item for sublist in batch_labels for item in sublist]
-    print(labels)
     return embeddings, labels
 
 
 class TextFeatureExtraction(object):
-    def __init__(self, word_model,embeddings_limit=None):
+    def __init__(self, word_model, embeddings_limit=None):
         """
             Initializes a TextFeatureExtraction object
             :param word_model: the loaded fasttext model

@@ -243,7 +243,7 @@ def max_sentence_length(sentences):
     forced_length = int(mu + std)
     print("----> Forcing {} max length.".format(forced_length))
 
-    return forced_length
+    return maximum
 
 
 def seed_torch():
