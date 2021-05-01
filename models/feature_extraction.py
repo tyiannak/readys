@@ -82,21 +82,27 @@ def bert_embeddings(sentences, labels, device="cpu"):
     batch_size = int(32 / pow(2, a))
 
     data_loader = DataLoader(dataset, batch_size=batch_size)
-    bert = BertModel.from_pretrained('bert-base-cased')
+    bert = BertModel.from_pretrained('bert-base-cased', output_hidden_states=True)
 
     bert.to(device)
+    bert.eval()
 
-    batch_embeddings = []
+    embeddings = []
     batch_labels = []
-    for seq, attn_masks, local_labels in data_loader:
-        seq, attn_masks = seq.to(device), \
-                                  attn_masks.to(device)
-        outputs = bert(seq, attention_mask=attn_masks)
+    with torch.no_grad():
+        for seq, attn_masks, local_labels in data_loader:
+            seq, attn_masks = seq.to(device), \
+                                      attn_masks.to(device)
+            outputs = bert(seq, attention_mask=attn_masks)
+            hidden_states = outputs[2]
+            batch_tokens = hidden_states[-2]
 
-        batch_embeddings.append(outputs[-1].detach().cpu().numpy())
-        batch_labels.append(local_labels.numpy())
+            for token_vecs in batch_tokens:
+                sentence_embedding = torch.mean(token_vecs, dim=0)
+                embeddings.append(sentence_embedding.detach().cpu().numpy())
 
-    embeddings = [item for sublist in batch_embeddings for item in sublist]
+            batch_labels.append(local_labels.cpu().numpy())
+
     labels = [item for sublist in batch_labels for item in sublist]
     return embeddings, labels
 
