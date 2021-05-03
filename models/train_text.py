@@ -52,7 +52,7 @@ def basic_segment_classifier(data, feature_extractor,pretrained, out_model):
 
     # extract features based on pretrained fasttext model
 
-    total_features = feature_extractor.transform(transcriptions)
+    total_features, labels = feature_extractor.transform(transcriptions,labels)
 
     clf = train_basic_segment_classifier(
         total_features, labels, is_imbalanced, config, seed)
@@ -104,17 +104,23 @@ def train_fasttext_segment_classifier(data, embeddings_limit, out_model):
     transcriptions, labels, classnames = load_text_dataset(
         data, config['hop_samples'])
 
-    convert_to_fasttext_data(labels, transcriptions, 'train.txt')
+    convert_to_fasttext_data(labels, transcriptions)
 
     print("--> Training classifier using fasttext")
     model = fasttext.train_supervised(
         input='train.txt', epoch=25, lr=1.0,
         wordNgrams=2, verbose=2, minCount=1,
-        loss="hs", dim=300, pretrainedVectors='tmp.vec',
+        loss="softmax", dim=300, pretrainedVectors='tmp.vec',
         seed=seed)
-
-    timestamp = time.ctime()
-    name = "fasttext_classifier_{}.ftz".format(timestamp)
+    
+    print("--> Performance measures on test set") 
+    num_of_samples, precision, recall = model.test("test.txt")
+    print("Number of samples:", num_of_samples)
+    print("Precision:",precision)
+    print("Recall",recall)
+    
+    #timestamp = time.ctime()
+    name = "fasttext_classifier_{}.ftz".format(out_model)
     out_folder = config["out_folder"]
     if not script_dir:
         if not os.path.exists(out_folder):
@@ -133,9 +139,9 @@ def train_fasttext_segment_classifier(data, embeddings_limit, out_model):
     model_dict['classifier_classnames'] = classnames
 
     if out_model is None:
-        save_model(model_dict, name="FASTTEXT")
+        save_model(model_dict,out_folder, name="FASTTEXT")
     else:
-        save_model(model_dict, out_model=out_model)
+        save_model(model_dict,out_folder, out_model=out_model)
 
     return None
 

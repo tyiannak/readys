@@ -31,10 +31,10 @@ class TextFeatureExtraction(object):
         # comply with scikit-learn transformer requirement
         return self
 
-    def transform(self, docs):
+    def transform(self, docs, labels):
         # comply with scikit-learn transformer requirement
-        doc_word_vector = self.sentence_features_list(docs)
-        return doc_word_vector
+        doc_word_vector,labels = self.sentence_features_list(docs,labels)
+        return doc_word_vector,labels
 
     def sentence_features(self, sentence):
         """
@@ -53,22 +53,26 @@ class TextFeatureExtraction(object):
                 try:
                     result = self.word_model.similar_by_word(word)
                     most_similar_key, similarity = result[0]
-                    feature = self.word_model[most_similar_key]
-                    features.append(feature)
+                    feature = self.word_model[most_similar_key] 
+                    if len(feature) == 300:
+                    	features.append(feature)
                 except:
                     continue
             else:
                 feature = self.word_model[word]
                 features.append(feature)
 
-        # average the feature vectors for all the words in a sentence-sample
-        X = np.array(features)
-        mu = np.mean(X, axis=0)
+        # average the feature vectors for all the words in a sentence-sample 
+        if features != []:
+        	X = np.array(features)
+        	mu = np.mean(X, axis=0) 
+        else:
+        	mu = []
         # save one vector(300 dimensional) for every sample
 
         return mu
 
-    def sentence_features_list(self, docs):
+    def sentence_features_list(self, docs, labels):
         """
         For each segment in docs, extracts the mean feature
         vector of the segment's words
@@ -76,7 +80,14 @@ class TextFeatureExtraction(object):
         :return: feature matrix for the whole dataset
         """
         print("--> Extracting text features")
-        return np.vstack([self.sentence_features(sent) for sent in docs])
+        total_features = [] 
+        new_labels = []
+        for count,sent in enumerate(docs):
+        	sample_features = self.sentence_features(sent) 
+        	if sample_features != []:
+        		total_features.append(sample_features) 
+        		new_labels.append(labels[count])
+        return np.vstack(total_features),new_labels
 
 
 class AudioFeatureExtraction(object):
