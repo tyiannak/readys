@@ -170,7 +170,7 @@ def basic_text_features(data, dur):
     # B. num_of_unique words / duration
     unique = set(words_list)
     num_of_unique = len(unique)
-    unique_rate = num_of_unique / (len_of_wordslist + np.finfo(np.float).eps)
+    unique_rate = num_of_unique / (dur + np.finfo(np.float).eps)
     basic_features = [word_rate,unique_rate]
     basic_feature_names.append("Unique words rate (num_of_unique_words/sec)")
 
