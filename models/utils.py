@@ -5,6 +5,7 @@ import pickle5 as pickle
 import time
 import numpy as np
 import pandas as pd
+from transformers import BertModel
 from num2words import num2words
 from collections import Counter
 from collections import defaultdict
@@ -96,7 +97,15 @@ def load_text_classifier_attributes(classifier_path):
     fasttext_model_path
     '''
     model_dict = pickle.load(open(classifier_path, 'rb'))
-    if model_dict['classifier_type'] == 'fasttext':
+    if model_dict['embedding_model'] == 'bert':
+        embeddings_type = "bert"
+        fasttext_model_path = None
+        pretrained_path = model_dict['embedding_model']
+        embeddings_limit = None
+        pretrained = BertModel.from_pretrained('bert-base-cased', output_hidden_states=True)
+        classifier = model_dict['classifier']
+    elif model_dict['classifier_type'] == 'fasttext':
+        embeddings_type = None
         fasttext_model_path = model_dict['fasttext_model']
         print("--> Loading the fasttext model")
         classifier = fasttext.load_model(fasttext_model_path)
@@ -104,13 +113,14 @@ def load_text_classifier_attributes(classifier_path):
         pretrained = None
         pretrained_path = None
     else:
+        embeddings_type = "fasstext"
         fasttext_model_path = None
         pretrained_path = model_dict['embedding_model']
         embeddings_limit = model_dict['embeddings_limit']
         pretrained = load_text_embeddings(pretrained_path,embeddings_limit)
         classifier = model_dict['classifier']
     classes = model_dict['classifier_classnames']
-    return classifier, classes, pretrained_path, pretrained, embeddings_limit, \
+    return embeddings_type, classifier, classes, pretrained_path, pretrained, embeddings_limit, \
            fasttext_model_path
 
 

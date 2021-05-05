@@ -57,7 +57,7 @@ class SSTDataset(Dataset):
         return tokens_ids_tensor, attn_mask, label
 
 
-def bert_embeddings(sentences, labels, device="cpu"):
+def bert_embeddings(sentences, labels, bert, device="cpu", inference=False):
     """
     Extract embeddings using BERT
     :param sentences: list of sentences
@@ -78,11 +78,13 @@ def bert_embeddings(sentences, labels, device="cpu"):
 
     dataset = SSTDataset(df, maxlen=max_len)
 
-    a = int(max_len / 32)
-    batch_size = int(32 / pow(2, a))
+    if inference:
+        batch_size = 1
+    else:
+        a = int(max_len / 32)
+        batch_size = int(32 / pow(2, a))
 
     data_loader = DataLoader(dataset, batch_size=batch_size)
-    bert = BertModel.from_pretrained('bert-base-cased', output_hidden_states=True)
 
     bert.to(device)
     bert.eval()

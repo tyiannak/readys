@@ -5,6 +5,7 @@ import argparse
 import yaml
 import torch
 import fasttext
+from transformers import BertModel
 from gensim.models import KeyedVectors
 from feature_extraction import TextFeatureExtraction
 from feature_extraction import bert_embeddings
@@ -57,7 +58,8 @@ def basic_segment_classifier(data, feature_extractor, pretrained, out_model):
     if pretrained == "bert":
         use_cuda = torch.cuda.is_available()
         device = torch.device("cuda:0" if use_cuda else "cpu")
-        total_features, _ = bert_embeddings(transcriptions, labels, device=device)
+        bert = BertModel.from_pretrained('bert-base-cased', output_hidden_states=True)
+        total_features, _ = bert_embeddings(transcriptions, labels, bert, device=device)
     else:
         total_features = feature_extractor.transform(transcriptions)
 

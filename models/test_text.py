@@ -6,14 +6,16 @@ decisions AND recording-level aggregates
 import sys
 import os
 import argparse
+import torch
+import numpy as np
 from nltk.tokenize import sent_tokenize
+from feature_extraction import bert_embeddings
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.realpath(__file__)), '../'))
 
 from models.feature_extraction import TextFeatureExtraction
 from models.utils import load_text_classifier_attributes
-
 
 
 def basic_segment_classifier_predict(feature_matrix, classifier,classes):
@@ -47,7 +49,7 @@ def basic_segment_classifier_predict(feature_matrix, classifier,classes):
     return dictionary, predicted_labels
 
 
-def predict(data, classifier,classes,pretrained,embeddings_limit):
+def predict(pure_data, embeddings_type, classifier, classes, pretrained, embeddings_limit):
     """
     Checks the type of the classifier and decides how to predict labels
     on test data.
@@ -60,8 +62,8 @@ def predict(data, classifier,classes,pretrained,embeddings_limit):
                 each class
              2. predicted_labels : a list of predicted labels of all samples
     """
-    if isinstance(data, str):
-        data = sent_tokenize(data)
+    if isinstance(pure_data, str):
+        data = sent_tokenize(pure_data)
     if pretrained == None:
         dictionary = {}
         predicted_labels = classifier.predict(data)
@@ -74,6 +76,15 @@ def predict(data, classifier,classes,pretrained,embeddings_limit):
         for label in dictionary:
             # TODO: Replace this aggregation by posterior-based aggregation
             dictionary[label] = (dictionary[label] * 100) / num_of_samples
+    elif embeddings_type == "bert":
+        use_cuda = torch.cuda.is_available()
+        device = torch.device("cuda:0" if use_cuda else "cpu")
+        feature_matrix, _ = bert_embeddings(pure_data, [0], pretrained, device=device)
+        feature_matrix = np.array(feature_matrix)
+        dictionary, predicted_labels = \
+            basic_segment_classifier_predict(feature_matrix,
+                                             classifier, classes)
+
     else:
         feature_extractor = TextFeatureExtraction(pretrained,
                                                   embeddings_limit)
@@ -82,7 +93,7 @@ def predict(data, classifier,classes,pretrained,embeddings_limit):
             basic_segment_classifier_predict(feature_matrix,
                                              classifier,classes)
 
-    return dictionary , predicted_labels
+    return dictionary, predicted_labels
 
 
 if __name__ == '__main__':
@@ -92,9 +103,9 @@ if __name__ == '__main__':
     parser.add_argument("-c", "--classifier",
                         help="the path of the classifier")
     args = parser.parse_args()
-    classifier, classes, pretrained_path, pretrained, embeddings_limit, _ = \
+    embeddings_type, classifier, classes, pretrained_path, pretrained, embeddings_limit, _ = \
         load_text_classifier_attributes(args.classifier)
-    dictionary, _ = predict(args.input, classifier,
+    dictionary, _ = predict(args.input, embeddings_type, classifier,
                             classes,
                             pretrained,
                             embeddings_limit)
