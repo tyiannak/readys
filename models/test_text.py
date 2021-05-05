@@ -49,7 +49,7 @@ def basic_segment_classifier_predict(feature_matrix, classifier,classes):
     return dictionary, predicted_labels
 
 
-def predict(pure_data, embeddings_type, classifier, classes, pretrained, embeddings_limit):
+def predict(pure_data, pretrained_path, classifier, classes, pretrained, embeddings_limit):
     """
     Checks the type of the classifier and decides how to predict labels
     on test data.
@@ -76,7 +76,7 @@ def predict(pure_data, embeddings_type, classifier, classes, pretrained, embeddi
         for label in dictionary:
             # TODO: Replace this aggregation by posterior-based aggregation
             dictionary[label] = (dictionary[label] * 100) / num_of_samples
-    elif embeddings_type == "bert":
+    elif pretrained_path == "bert":
         use_cuda = torch.cuda.is_available()
         device = torch.device("cuda:0" if use_cuda else "cpu")
         feature_matrix, _ = bert_embeddings(pure_data, [0], pretrained, device=device)
@@ -103,9 +103,9 @@ if __name__ == '__main__':
     parser.add_argument("-c", "--classifier",
                         help="the path of the classifier")
     args = parser.parse_args()
-    embeddings_type, classifier, classes, pretrained_path, pretrained, embeddings_limit, _ = \
+    classifier, classes, pretrained_path, pretrained, embeddings_limit, _ = \
         load_text_classifier_attributes(args.classifier)
-    dictionary, _ = predict(args.input, embeddings_type, classifier,
+    dictionary, _ = predict(args.input, pretrained_path, classifier,
                             classes,
                             pretrained,
                             embeddings_limit)

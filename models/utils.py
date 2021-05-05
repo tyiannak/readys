@@ -98,14 +98,12 @@ def load_text_classifier_attributes(classifier_path):
     '''
     model_dict = pickle.load(open(classifier_path, 'rb'))
     if model_dict['embedding_model'] == 'bert':
-        embeddings_type = "bert"
         fasttext_model_path = None
         pretrained_path = model_dict['embedding_model']
         embeddings_limit = None
         pretrained = BertModel.from_pretrained('bert-base-cased', output_hidden_states=True)
         classifier = model_dict['classifier']
     elif model_dict['classifier_type'] == 'fasttext':
-        embeddings_type = None
         fasttext_model_path = model_dict['fasttext_model']
         print("--> Loading the fasttext model")
         classifier = fasttext.load_model(fasttext_model_path)
@@ -113,14 +111,13 @@ def load_text_classifier_attributes(classifier_path):
         pretrained = None
         pretrained_path = None
     else:
-        embeddings_type = "fasstext"
         fasttext_model_path = None
         pretrained_path = model_dict['embedding_model']
         embeddings_limit = model_dict['embeddings_limit']
         pretrained = load_text_embeddings(pretrained_path,embeddings_limit)
         classifier = model_dict['classifier']
     classes = model_dict['classifier_classnames']
-    return embeddings_type, classifier, classes, pretrained_path, pretrained, embeddings_limit, \
+    return classifier, classes, pretrained_path, pretrained, embeddings_limit, \
            fasttext_model_path
 
 
@@ -226,17 +223,25 @@ def folders_mapping(folders):
     return folder2idx, idx2folder
 
 
-def convert_to_fasttext_data(labels, transcriptions, filename):
+def convert_to_fasttext_data(labels, transcriptions):
     """
     Converts data in the correct form to use in fasttext training.
     :param labels: list of string labels written in the form __label__name
     :param transcriptions: transcriptions: list of text segments
     :param filename: file to save the output data
     """
-    data = [label + " " + trans for label, trans in zip(
-        labels, transcriptions)]
-    df = pd.DataFrame(data)
-    df.to_csv(filename, index=False, sep=' ',
+    data = []
+    for label, trans in zip(labels, transcriptions):
+        trans_pre = text_preprocess(trans)
+        data.append("__label__" + label + " " + trans_pre)
+
+    num_of_training_samples = int(0.8 * len(labels))
+    df = pd.DataFrame(data[0:num_of_training_samples - 1])
+    df.to_csv("train.txt", index=False, sep=' ',
+              header=None, quoting=csv.QUOTE_NONE,
+              quotechar="", escapechar=" ")
+    df = pd.DataFrame(data[num_of_training_samples:-1])
+    df.to_csv("test.txt", index=False, sep=' ',
               header=None, quoting=csv.QUOTE_NONE,
               quotechar="", escapechar=" ")
 
