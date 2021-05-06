@@ -97,7 +97,7 @@ def bert_embeddings(sentences, labels, bert, device="cpu", inference=False):
                                       attn_masks.to(device)
             outputs = bert(seq, attention_mask=attn_masks)
             hidden_states = outputs[2]
-            batch_tokens = hidden_states[-2]
+            batch_tokens = torch.stack(hidden_states[-4:]).sum(0)
 
             for token_vecs in batch_tokens:
                 sentence_embedding = torch.mean(token_vecs, dim=0)
