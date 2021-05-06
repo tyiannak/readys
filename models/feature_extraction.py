@@ -57,7 +57,7 @@ class SSTDataset(Dataset):
         return tokens_ids_tensor, attn_mask, label
 
 
-def bert_embeddings(sentences, labels, bert, device="cpu", inference=False):
+def bert_embeddings(sentences, labels, bert, device="cpu", inference=False, force_len=-1):
     """
     Extract embeddings using BERT
     :param sentences: list of sentences
@@ -76,8 +76,10 @@ def bert_embeddings(sentences, labels, bert, device="cpu", inference=False):
     df, le, max_len = bert_preprocessing(sentences, labels)
     print("----> Class mapping: {}".format(le.classes_))
 
-    dataset = SSTDataset(df, maxlen=max_len)
-
+    if force_len < 0:
+        dataset = SSTDataset(df, maxlen=max_len)
+    else:
+        dataset = SSTDataset(df, maxlen=force_len)
     if inference:
         batch_size = 1
     else:
@@ -106,7 +108,7 @@ def bert_embeddings(sentences, labels, bert, device="cpu", inference=False):
             batch_labels.append(local_labels.cpu().numpy())
 
     labels = [item for sublist in batch_labels for item in sublist]
-    return embeddings, labels
+    return embeddings, labels, max_len
 
 
 class TextFeatureExtraction(object):

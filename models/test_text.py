@@ -49,7 +49,8 @@ def basic_segment_classifier_predict(feature_matrix, classifier,classes):
     return dictionary, predicted_labels
 
 
-def predict(pure_data, pretrained_path, classifier, classes, pretrained, embeddings_limit):
+def predict(pure_data, pretrained_path, classifier,
+            classes, pretrained, embeddings_limit, max_len):
     """
     Checks the type of the classifier and decides how to predict labels
     on test data.
@@ -79,7 +80,9 @@ def predict(pure_data, pretrained_path, classifier, classes, pretrained, embeddi
     elif pretrained_path == "bert":
         use_cuda = torch.cuda.is_available()
         device = torch.device("cuda:0" if use_cuda else "cpu")
-        feature_matrix, _ = bert_embeddings(pure_data, [0], pretrained, device=device)
+        feature_matrix, _ = bert_embeddings(
+            pure_data, [0], pretrained, device=device,
+            inference=False, force_len=max_len)
         feature_matrix = np.array(feature_matrix)
         dictionary, predicted_labels = \
             basic_segment_classifier_predict(feature_matrix,
@@ -103,10 +106,9 @@ if __name__ == '__main__':
     parser.add_argument("-c", "--classifier",
                         help="the path of the classifier")
     args = parser.parse_args()
-    classifier, classes, pretrained_path, pretrained, embeddings_limit, _ = \
+    classifier, classes, pretrained_path, pretrained, embeddings_limit, _, max_len = \
         load_text_classifier_attributes(args.classifier)
-    dictionary, _ = predict(args.input, pretrained_path, classifier,
-                            classes,
-                            pretrained,
-                            embeddings_limit)
+    dictionary, _ = predict(
+        args.input, pretrained_path, classifier,
+        classes, pretrained, embeddings_limit, max_len)
     print(dictionary)

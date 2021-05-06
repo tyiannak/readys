@@ -103,6 +103,7 @@ def load_text_classifier_attributes(classifier_path):
         embeddings_limit = None
         pretrained = BertModel.from_pretrained('bert-base-cased', output_hidden_states=True)
         classifier = model_dict['classifier']
+        max_len = model_dict['max_len']
     elif model_dict['classifier_type'] == 'fasttext':
         fasttext_model_path = model_dict['fasttext_model']
         print("--> Loading the fasttext model")
@@ -110,15 +111,17 @@ def load_text_classifier_attributes(classifier_path):
         embeddings_limit = None
         pretrained = None
         pretrained_path = None
+        max_len = None
     else:
         fasttext_model_path = None
         pretrained_path = model_dict['embedding_model']
         embeddings_limit = model_dict['embeddings_limit']
         pretrained = load_text_embeddings(pretrained_path,embeddings_limit)
         classifier = model_dict['classifier']
+        max_len = None
     classes = model_dict['classifier_classnames']
     return classifier, classes, pretrained_path, pretrained, embeddings_limit, \
-           fasttext_model_path
+           fasttext_model_path, max_len
 
 
 def test_if_already_loaded(model_path,classifiers_attributes):
