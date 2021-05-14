@@ -80,7 +80,7 @@ def predict(pure_data, pretrained_path, classifier,
     elif pretrained_path == "bert":
         use_cuda = torch.cuda.is_available()
         device = torch.device("cuda:0" if use_cuda else "cpu")
-        feature_matrix, _ = bert_embeddings(
+        feature_matrix, _, _= bert_embeddings(
             pure_data, [0], pretrained, device=device,
             inference=False, force_len=max_len)
         feature_matrix = np.array(feature_matrix)
