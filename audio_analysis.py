@@ -10,6 +10,7 @@ import wave
 import numpy as np
 from pyAudioAnalysis import audioSegmentation as aS
 from pyAudioAnalysis import audioBasicIO as aio
+from pyAudioAnalysis import MidTermFeatures as aF
 from models.test_audio import predict_audio_labels
 import os
 import argparse
@@ -68,7 +69,7 @@ def silence_features(segment_limits,dur):
     return silence_features, number_of_pauses, total_speech
 
 
-def audio_based_feature_extraction(input_file,models_directory):
+def audio_based_feature_extraction(input_file,models_directory, pyaudio_params=None):
     """
         Export all features for a wav file (silence based + classifiers based)
         :param input_file: the audio file
@@ -127,6 +128,17 @@ def audio_based_feature_extraction(input_file,models_directory):
             feature_names.append(feature_string)
             features.append(feature_value)
 
+    if pyaudio_params:
+        (segment_features_stats, segment_features,
+         pyaudio_feature_names) = aF.mid_feature_extraction(
+            x, fs, round(pyaudio_params['mid_window'] * fs),
+            round(pyaudio_params['mid_step'] * fs),
+            round(fs * pyaudio_params['short_window']),
+            round(fs * pyaudio_params['short_step']))
+
+        features = np.append(np.array(features), segment_features_stats.mean(axis=1))
+        feature_names = feature_names + pyaudio_feature_names
+
     metadata = {
         "Number of pauses short": number_of_pauses_short,
         "Number of pauses long" : number_of_pauses_long,
@@ -161,8 +173,9 @@ if __name__ == '__main__':
                              "trained classifiers "
                              "(models' files + MEANS files)")
     args = parser.parse_args()
+
     features, feature_names,metadata = \
-        audio_based_feature_extraction(args.input, args.classifiers_path)
+        audio_based_feature_extraction(args.input, args.classifiers_path, pyaudio_params)
     print("Features names:\n {}".format(feature_names))
     print("Features:\n {}".format(features))
     print("Metadata:\n {}".format(metadata))
