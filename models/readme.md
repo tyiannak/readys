@@ -99,7 +99,9 @@ To train:
       `text_models_folder` and
       `out_folder` 
    write the paths of audio models,text models and recording level models respectively 
-8. Run training script e.g.  
+8. `audio_features`: if `fused` concatenates models' features with hand-crafted audio features from pyAudioAnalysis. 
+9. `pyaudio_params`: if `audio_features` is fused, choose the hand-crafted feature parameters
+10. Run training script e.g.  
 
 ```
 python3 train_recording_level_classifier.py -i speeches -mn speeches
