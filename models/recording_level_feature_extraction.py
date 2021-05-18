@@ -125,6 +125,8 @@ class RecordingLevelFeatureExtraction(object):
         method = self.basic_features_params['text_segmentation_params']['method_of_segmentation']
         overall_features = []
 
+        # load text classifiers attributes containing embeddings
+        # in order not to be loaded for every sample
         if features_type == "fused" or features_type == "text":
             classifiers_attributes = load_classifiers(text_models_directory)
 
@@ -135,8 +137,6 @@ class RecordingLevelFeatureExtraction(object):
                 reference_text = textnames[count]
             if features_type == "fused":
 
-                # load text classifiers attributes containing embeddings
-                # in order not to be loaded for every sample
                 if self.basic_features_params['audio_features'] == "fused":
                     audio_features, audio_features_names, _ = \
                         audio_based_feature_extraction(

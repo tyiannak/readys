@@ -128,6 +128,7 @@ def audio_based_feature_extraction(input_file,models_directory, pyaudio_params=N
             feature_names.append(feature_string)
             features.append(feature_value)
 
+    # C. pyaudio features
     if pyaudio_params:
         (segment_features_stats, segment_features,
          pyaudio_feature_names) = aF.mid_feature_extraction(
@@ -172,10 +173,22 @@ if __name__ == '__main__':
                         help="the directory which contains all "
                              "trained classifiers "
                              "(models' files + MEANS files)")
+    parser.add_argument("-f","--fused_features_with_pyaudio", nargs='?', const=1, type=int,
+                        help="if this argument is added then pyaudio features will be concatenated")
     args = parser.parse_args()
 
-    features, feature_names,metadata = \
-        audio_based_feature_extraction(args.input, args.classifiers_path, pyaudio_params)
+    if args.fused_features_with_pyaudio==None:
+        features, feature_names,metadata = \
+            audio_based_feature_extraction(args.input, args.classifiers_path)
+    elif args.fused_features_with_pyaudio==1:
+        pyaudio_params= {
+            'mid_window': 3,
+            'mid_step': 3,
+            'short_window': 0.05,
+            'short_step': 0.05
+        }
+        features, feature_names, metadata = \
+            audio_based_feature_extraction(args.input, args.classifiers_path,pyaudio_params)
     print("Features names:\n {}".format(feature_names))
     print("Features:\n {}".format(features))
     print("Metadata:\n {}".format(metadata))
