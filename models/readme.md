@@ -12,26 +12,29 @@ Download training data, e.g. from:
 `https://drive.google.com/drive/folders/1vgJf0hev60GeZbfyOiqU1YtX_h1FaGl8`
 
 Train the text classifier:
-1. Edit `config.yaml`, under the `text_classifier` field. 
-Choose classifier type (svm, xgboost, fasttext)
+1. Edit `config.yaml`. 
+Choose classifier model (svm, xgboost, fasttext) and make it True.
 2. In case of `fasttext`, place the path to the pretrained embeddings vector 
 at `pretrained_embedding_vectors`
 3. In case of SVM, set its parameters.
 4. If you wish to reduce your dataset for debbuging reasons, use the 
 `hop_samples` variable.
 5. Run the training script script: 
-	- case 1: Using the whole embedding model:
+    - case 1: Using the whole fasttext embedding model:
      
         ```python3 train_text.py --annotation valence_transcriptions_labels.csv --pretrained wiki.en.vec -o valence```
     - case 2: Using an embeddings limit in order to avoid memory errors:
          
-        ```python3 train_text.py --annotation valence_transcriptions_labels.csv --pretrained wiki.en.vec -o valence_500K -l 500000```
+        ```python3 train_text.py --annotation valence_transcriptions_labels.csv --pretrained wiki.en.vec -o valence_500K -l 500000``` 
+    - case 3: Using bert embeddings: 
+    	 
+        ```python3 train_text.py --annotation valence_transcriptions_labels.csv --pretrained bert -o valence```
    
 Input is training data in csv format with two columns: "transcriptions" 
 (the text data examples) and "labels" (the ground truth target value of 
 the classification task).
 The output classifier dictionary will be saved at the defined 
-`output_classifier_dictionary_path`. 
+`output_folder`. 
 
 ### 1.1.2 Test
 ```
