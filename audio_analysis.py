@@ -84,7 +84,7 @@ def audio_based_feature_extraction(input_file,models_directory, pyaudio_params=N
     print(len(x) / fs)
     # get the silence estimates using pyAudioAnalysis semisupervised approach
     # for different windows and steps
-    if dur < 5:
+    if dur < 6.2:
         seg_limits_short = [[0, dur]]
         seg_limits_long = [[0, dur]]
     else:
@@ -137,7 +137,7 @@ def audio_based_feature_extraction(input_file,models_directory, pyaudio_params=N
             round(fs * pyaudio_params['short_window']),
             round(fs * pyaudio_params['short_step']))
 
-        features = np.append(np.array(features), segment_features_stats.mean(axis=1))
+        features = features + list(segment_features_stats.mean(axis=1))
         feature_names = feature_names + pyaudio_feature_names
 
     metadata = {
