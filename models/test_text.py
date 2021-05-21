@@ -79,9 +79,11 @@ def predict(pure_data, pretrained_path, classifier,
             dictionary[label] = (dictionary[label] * 100) / num_of_samples
     elif pretrained_path == "bert":
         use_cuda = torch.cuda.is_available()
+        num_of_sentences = len(pure_data)
+        Labels = [0] * num_of_sentences
         device = torch.device("cuda:0" if use_cuda else "cpu")
         feature_matrix, _, _= bert_embeddings(
-            pure_data, [0], pretrained, device=device,
+            pure_data, Labels, pretrained, device=device,
             inference=False, force_len=max_len)
         feature_matrix = np.array(feature_matrix)
         dictionary, predicted_labels = \
