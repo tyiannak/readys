@@ -249,6 +249,7 @@ def convert_to_fasttext_data(labels, transcriptions):
     :param filename: file to save the output data
     """
     data = []
+
     for label, trans in zip(labels, transcriptions):
         trans_pre = text_preprocess(trans)
         data.append("__label__" + label + " " + trans_pre)

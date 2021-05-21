@@ -130,6 +130,7 @@ class TextFeatureExtraction(object):
         doc_word_vector, labels = self.sentence_features_list(docs, labels)
         return doc_word_vector, labels
 
+
     def sentence_features(self, sentence):
         """
            Given a segment (example) extracts a feature vector
@@ -182,6 +183,7 @@ class TextFeatureExtraction(object):
                 total_features.append(sample_features)
                 new_labels.append(labels[count])
         return np.vstack(total_features), new_labels
+
 
 
 class AudioFeatureExtraction(object):
