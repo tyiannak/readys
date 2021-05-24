@@ -35,8 +35,13 @@ The feature_names , features and metadata will be printed.
 ### Audio: audio_analysis.py 
 In order to get audio features from audio file (silence features + 
 classification features) run the below command in your terminal 
+- Case 1: Not using pyaudio recording level features:
 ```
 python3 audio_analysis.py -i wav_file -c classifiers_path
+```
+- Case 2: Adding pyaudio recording level features:
+```
+python3 audio_analysis.py -i wav_file -c classifiers_path -f
 ```
 Where: 
 

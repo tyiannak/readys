@@ -3,9 +3,12 @@ import numpy as np
 import time
 import argparse
 import yaml
+import torch
 import fasttext
+from transformers import BertModel
 from gensim.models import KeyedVectors
 from feature_extraction import TextFeatureExtraction
+from feature_extraction import bert_embeddings
 from utils import load_text_embeddings
 from utils import load_text_dataset, check_balance,\
     convert_to_fasttext_data, save_model,\
@@ -24,7 +27,7 @@ else:
 config = config['text_classifier']
 
 
-def basic_segment_classifier(data, feature_extractor,pretrained, out_model):
+def basic_segment_classifier(data, feature_extractor, pretrained, out_model):
     """
     Reads the config file and trains a classifier. It stores a model_dict
     containing the following information:
@@ -52,7 +55,13 @@ def basic_segment_classifier(data, feature_extractor,pretrained, out_model):
 
     # extract features based on pretrained fasttext model
 
-    total_features, labels = feature_extractor.transform(transcriptions,labels)
+    if pretrained == "bert":
+        use_cuda = torch.cuda.is_available()
+        device = torch.device("cuda:0" if use_cuda else "cpu")
+        bert = BertModel.from_pretrained('bert-base-cased', output_hidden_states=True)
+        total_features, _, max_len = bert_embeddings(transcriptions, labels, bert, device=device)
+    else:
+        total_features, labels = feature_extractor.transform(transcriptions,labels)
 
     clf = train_basic_segment_classifier(
         total_features, labels, is_imbalanced, config, seed)
@@ -62,8 +71,10 @@ def basic_segment_classifier(data, feature_extractor,pretrained, out_model):
     model_dict['classifier'] = clf
     model_dict['classifier_classnames'] = classnames
     model_dict['embedding_model'] = pretrained
-    model_dict['embeddings_limit'] = feature_extractor.embeddings_limit
-
+    if pretrained != "bert":
+        model_dict['embeddings_limit'] = feature_extractor.embeddings_limit
+    else:
+        model_dict['max_len'] = max_len
     out_folder = config['out_folder']
     if out_model is None:
         save_model(model_dict,out_folder, name="basic_classifier")
@@ -112,13 +123,13 @@ def train_fasttext_segment_classifier(data, embeddings_limit, out_model):
         wordNgrams=2, verbose=2, minCount=1,
         loss="softmax", dim=300, pretrainedVectors='tmp.vec',
         seed=seed)
-    
-    print("--> Performance measures on test set") 
+
+    print("--> Performance measures on test set")
     num_of_samples, precision, recall = model.test("test.txt")
     print("Number of samples:", num_of_samples)
-    print("Precision:",precision)
-    print("Recall",recall)
-    
+    print("Precision:", precision)
+    print("Recall", recall)
+
     #timestamp = time.ctime()
     name = "fasttext_classifier_{}.ftz".format(out_model)
     out_folder = config["out_folder"]
@@ -165,16 +176,20 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if config['fasttext']:
-        train_fasttext_segment_classifier(
-            args.annotation, args.embeddings_limit, args.outputmodelname)
-
-    elif config['svm'] or config['xgboost']:
-        word_model = load_text_embeddings(args.pretrained,
-                                          args.embeddings_limit)
-        feature_extractor = TextFeatureExtraction(word_model,
-                                                  args.embeddings_limit)
-        basic_segment_classifier(args.annotation, feature_extractor,args.pretrained,
+    if args.pretrained == "bert":
+        basic_segment_classifier(args.annotation, None, args.pretrained,
                                  args.outputmodelname)
     else:
-        print('SVM and fasttext are the only supported classifiers.')
+        if config['fasttext']:
+            train_fasttext_segment_classifier(
+                args.annotation, args.embeddings_limit, args.outputmodelname)
+
+        elif config['svm'] or config['xgboost']:
+            word_model = load_text_embeddings(args.pretrained,
+                                              args.embeddings_limit)
+            feature_extractor = TextFeatureExtraction(word_model,
+                                                      args.embeddings_limit)
+            basic_segment_classifier(args.annotation, feature_extractor, args.pretrained,
+                                     args.outputmodelname)
+        else:
+            print('SVM and fasttext are the only supported classifiers.')

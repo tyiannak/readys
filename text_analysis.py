@@ -136,13 +136,15 @@ def text_features(text, classifiers_attributes, segmentation_threshold=None,
 
     #for every text classifier (with embeddings already loaded)
     for classifier_dictionary in classifiers_attributes:
-        classifier, classes, pretrained, embeddings_limit = \
+        pretrained_path, classifier, classes, pretrained, embeddings_limit, max_len = \
+            classifier_dictionary['pretrained_path'],\
             classifier_dictionary['classifier'],\
             classifier_dictionary['classes'],\
             classifier_dictionary['pretrained'],\
-            classifier_dictionary['embeddings_limit']
-        dictionary , _ = predict(text_segmented, classifier, classes,
-                                 pretrained, embeddings_limit)
+            classifier_dictionary['embeddings_limit'],\
+            classifier_dictionary['max_len']
+        dictionary , _ = predict(text_segmented, pretrained_path, classifier, classes,
+                                 pretrained, embeddings_limit, max_len)
         dictionaries.append(dictionary)
     for dictionary in dictionaries:
         for label in dictionary:

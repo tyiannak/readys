@@ -5,6 +5,7 @@ import pickle5 as pickle
 import time
 import numpy as np
 import pandas as pd
+from transformers import BertModel
 from num2words import num2words
 from collections import Counter
 from collections import defaultdict
@@ -16,6 +17,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn import preprocessing
 from sklearn import svm
 from xgboost import XGBClassifier
 from imblearn.pipeline import Pipeline
@@ -27,7 +29,10 @@ from sklearn.neighbors import KNeighborsClassifier
 import fasttext
 from gensim.models import KeyedVectors
 from pathlib import Path
-
+import torch
+import plotly
+import plotly.graph_objs as go
+import matplotlib.pyplot as plt
 
 def text_preprocess(document):
     """
@@ -76,7 +81,7 @@ def load_text_embeddings(word_model_path,embeddings_limit=None):
     :param embeddings_limit: the embedding limit
     :return: the embedding model loaded
     '''
-    print("--> Loading the text embeddings model")
+    print("--> Loading the fasttext embeddings")
     if embeddings_limit:
         word_model = KeyedVectors.load_word2vec_format(
             word_model_path, limit=embeddings_limit)
@@ -94,22 +99,32 @@ def load_text_classifier_attributes(classifier_path):
     fasttext_model_path
     '''
     model_dict = pickle.load(open(classifier_path, 'rb'))
-    if model_dict['classifier_type'] == 'fasttext':
+    if model_dict['embedding_model'] == 'bert':
+        fasttext_model_path = None
+        pretrained_path = model_dict['embedding_model']
+        embeddings_limit = None
+        print("--> Loading the bert embeddings")
+        pretrained = BertModel.from_pretrained('bert-base-cased', output_hidden_states=True)
+        classifier = model_dict['classifier']
+        max_len = model_dict['max_len']
+    elif model_dict['classifier_type'] == 'fasttext':
         fasttext_model_path = model_dict['fasttext_model']
         print("--> Loading the fasttext model")
         classifier = fasttext.load_model(fasttext_model_path)
         embeddings_limit = None
         pretrained = None
         pretrained_path = None
+        max_len = None
     else:
         fasttext_model_path = None
         pretrained_path = model_dict['embedding_model']
         embeddings_limit = model_dict['embeddings_limit']
         pretrained = load_text_embeddings(pretrained_path,embeddings_limit)
         classifier = model_dict['classifier']
+        max_len = None
     classes = model_dict['classifier_classnames']
     return classifier, classes, pretrained_path, pretrained, embeddings_limit, \
-           fasttext_model_path
+           fasttext_model_path, max_len
 
 
 def test_if_already_loaded(model_path,classifiers_attributes):
@@ -136,12 +151,10 @@ def test_if_already_loaded(model_path,classifiers_attributes):
                 pretrained = None
                 pretrained_path = None
                 classes = model_dict['classifier_classnames']
+                max_len = None
                 found = True
                 break
-        if not(found):
-            classifier, classes,pretrained_path, pretrained, embeddings_limit, \
-            fasttext_model_path = load_text_classifier_attributes(model_path)
-    else:
+    elif model_dict['embedding_model'] != 'bert':
         for classifier in classifiers_attributes:
             if classifier['embeddings_limit'] == model_dict['embeddings_limit'] \
                     and classifier['pretrained_path'] == \
@@ -154,15 +167,29 @@ def test_if_already_loaded(model_path,classifiers_attributes):
                 pretrained = classifier['pretrained']
                 classifier = model_dict['classifier']
                 classes = model_dict['classifier_classnames']
+                max_len = None
                 found = True
                 break
-        if not(found):
-            classifier, classes, pretrained_path, pretrained, \
-            embeddings_limit, fasttext_model_path = \
-                load_text_classifier_attributes(model_path)
-
+    elif model_dict['embedding_model'] == 'bert':
+        for classifier in classifiers_attributes:
+            if classifier['pretrained_path'] == 'bert':
+                fasttext_model_path = None
+                pretrained_path = model_dict['embedding_model']
+                embeddings_limit = None
+                print("--> Copying the bert text embeddings "
+                      "from previous loading")
+                pretrained = classifier['pretrained']
+                classifier = model_dict['classifier']
+                classes = model_dict['classifier_classnames']
+                max_len = model_dict['max_len']
+                found = True
+                break
+    if not(found):
+        classifier, classes, pretrained_path, pretrained, \
+        embeddings_limit, fasttext_model_path, max_len = \
+            load_text_classifier_attributes(model_path)
     return  classifier, classes, pretrained_path, pretrained, \
-            embeddings_limit, fasttext_model_path
+                embeddings_limit, fasttext_model_path, max_len
 
 
 def load_classifiers(text_models_directory):
@@ -173,7 +200,7 @@ def load_classifiers(text_models_directory):
             dictionary = {}
             dictionary['classifier'], dictionary['classes'], \
             dictionary['pretrained_path'], dictionary['pretrained'], \
-            dictionary['embeddings_limit'], dictionary['fasttext_model_path'] = \
+            dictionary['embeddings_limit'], dictionary['fasttext_model_path'], dictionary['max_len'] = \
                 test_if_already_loaded(model_path, classifiers_attributes)
             classifiers_attributes.append(dictionary)
     return classifiers_attributes
@@ -222,12 +249,13 @@ def convert_to_fasttext_data(labels, transcriptions):
     :param filename: file to save the output data
     """
     data = []
-    for label,trans in zip(labels,transcriptions):
+
+    for label, trans in zip(labels, transcriptions):
         trans_pre = text_preprocess(trans)
-        data.append("__label__"+ label + " " + trans_pre)
-        
+        data.append("__label__" + label + " " + trans_pre)
+
     num_of_training_samples = int(0.8 * len(labels))
-    df = pd.DataFrame(data[0:num_of_training_samples-1])
+    df = pd.DataFrame(data[0:num_of_training_samples - 1])
     df.to_csv("train.txt", index=False, sep=' ',
               header=None, quoting=csv.QUOTE_NONE,
               quotechar="", escapechar=" ")
@@ -235,6 +263,45 @@ def convert_to_fasttext_data(labels, transcriptions):
     df.to_csv("test.txt", index=False, sep=' ',
               header=None, quoting=csv.QUOTE_NONE,
               quotechar="", escapechar=" ")
+
+
+def max_sentence_length(sentences):
+    lengths = [len(sentence.split()) for sentence in sentences]
+    mu = np.mean(lengths)
+    std = np.std(lengths)
+    maximum = max(lengths)
+
+    print("----> Documents' lengths: max = {}, mean = {}, std = {}".format(
+        maximum, mu, std))
+
+    forced_length = int(mu + std)
+   
+    return maximum
+
+
+def seed_torch():
+    torch.manual_seed(42)
+    torch.cuda.manual_seed_all(42)
+    torch.backends.cudnn.deterministic = True
+
+
+def bert_dataframe(sentences, labels):
+    d = {'sentence': sentences, 'label': labels}
+    df = pd.DataFrame(d)
+    return df
+
+
+def bert_preprocessing(sentences, labels):
+
+    le = preprocessing.LabelEncoder()
+    le.fit(labels)
+    labels = le.transform(labels)
+
+    df = bert_dataframe(sentences, labels)
+
+    max_len = max_sentence_length(sentences)
+
+    return df, le, max_len
 
 
 def check_balance(labels):
@@ -322,6 +389,52 @@ def save_model(model_dict,out_folder, out_model=None, name=None):
     with open(out_path, 'wb') as handle:
         pickle.dump(model_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+def plot_feature_histograms(list_of_feature_mtr, feature_names,
+                            class_names, n_columns=5):
+    '''
+    Plots the histograms of all classes and features for a given
+    classification task.
+    :param list_of_feature_mtr: list of feature matrices
+                                (n_samples x n_features) for each class
+    :param feature_names:       list of feature names
+    :param class_names:         list of class names, for each feature matr
+    '''
+    n_features = len(feature_names)
+    n_bins = 12
+    n_rows = int(n_features / n_columns) + 1
+    figs = plotly.subplots.make_subplots(rows=n_rows, cols=n_columns,
+                                      subplot_titles=feature_names)
+    figs['layout'].update(height=(n_rows * 250))
+    clr = get_color_combinations(len(class_names))
+    for i in range(n_features):
+        # for each feature get its bin range (min:(max-min)/n_bins:max)
+        f = np.vstack([x[:, i:i + 1] for x in list_of_feature_mtr])
+        bins = np.arange(f.min(), f.max(), (f.max() - f.min()) / n_bins)
+        for fi, f in enumerate(list_of_feature_mtr):
+            # load the color for the current class (fi)
+            mark_prop = dict(color=clr[fi], line=dict(color=clr[fi], width=3))
+            # compute the histogram of the current feature (i) and normalize:
+            h, _ = np.histogram(f[:, i], bins=bins)
+            h = h.astype(float) / h.sum()
+            cbins = (bins[0:-1] + bins[1:]) / 2
+            scatter_1 = go.Scatter(x=cbins, y=h, name=class_names[fi],
+                                   marker=mark_prop, showlegend=(i == 0))
+            # (show the legend only on the first line)
+            figs.append_trace(scatter_1, int(i/n_columns)+1, i % n_columns+1)
+    for i in figs['layout']['annotations']:
+        i['font'] = dict(size=10, color='#224488')
+    plotly.offline.plot(figs, filename="report.html", auto_open=True)
+
+def get_color_combinations(n_classes):
+    clr_map = plt.cm.get_cmap('jet')
+    range_cl = range(int(int(255/n_classes)/2), 255, int(255/n_classes))
+    clr = []
+    for i in range(n_classes):
+        clr.append('rgba({},{},{},{})'.format(clr_map(range_cl[i])[0],
+                                              clr_map(range_cl[i])[1],
+                                              clr_map(range_cl[i])[2],
+                                              clr_map(range_cl[i])[3]))
+    return clr
 
 def grid_init(clf, clf_name, parameters_dict,
               is_imbalanced, scoring, refit, seed=None):
@@ -346,7 +459,7 @@ def grid_init(clf, clf_name, parameters_dict,
     if is_imbalanced:
         print('--> The dataset is imbalanced. SMOTETomek will'
               ' be applied to balance the classes')
-        sampler = SMOTETomek(random_state=seed, n_jobs=-1)
+        sampler = SMOTETomek(random_state=seed)
 
     scaler = StandardScaler()
 
@@ -442,7 +555,7 @@ def train_basic_segment_classifier(feature_matrix, labels,
     scorer[config['metric']] = metric
 
     if config['svm']:
-        clf = svm.SVC(kernel=config['svm_parameters']['kernel'],
+        clf = svm.SVC(kernel=config['svm_parameters']['kernel'], probability=True,
                       class_weight='balanced')
         svm_parameters = {'gamma': ['auto', 'scale'],
                           'C': [0.001, 0.01,  0.5, 1.0, 5.0, 10.0, 20.0]}
@@ -509,7 +622,7 @@ def train_recording_level_classifier(feature_matrix, labels,
 
     n_components = [None]
     if config['classifier_type'] == 'svm_rbf':
-        clf = svm.SVC(kernel='rbf',
+        clf = svm.SVC(kernel='rbf', probability=True,
                       class_weight='balanced')
         svm_parameters = {'gamma': ['auto', 'scale'],
                           'C': [1e-1, 1, 5, 1e1]}

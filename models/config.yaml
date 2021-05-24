@@ -17,14 +17,21 @@ audio_classifier:
   metric: 'f1_macro'
   basic_features_params: {
     'mid_window': 3,
-    'mid_step': 1,
-    'short_window': 0.1,
-    'short_step': 0.1
+    'mid_step': 3,
+    'short_window': 0.05,
+    'short_step': 0.05
   }
   out_folder: "output_models/audio/"
 
 recording_level_classifier:
-  features_type: 'fused'
+  features_type: 'text'
+  audio_features: 'fused'
+  pyaudio_params: {
+    'mid_window': 3,
+    'mid_step': 3,
+    'short_window': 0.05,
+    'short_step': 0.05
+}
   classifier_type: 'svm_rbf'
   metric: 'f1_macro'
   google_credentials: 'apikey.json'
@@ -33,6 +40,6 @@ recording_level_classifier:
      'segmentation_threshold' : None, 
      'method_of_segmentation' : None
   }
-  audio_models_folder: "output_models/audio/"
-  text_models_folder: "output_models/text/"
+  audio_models_folder: "models/output_models/audio/"
+  text_models_folder: "models/output_models/text/"
   out_folder: "output_models/recording_level/"

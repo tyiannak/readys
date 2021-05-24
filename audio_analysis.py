@@ -10,6 +10,7 @@ import wave
 import numpy as np
 from pyAudioAnalysis import audioSegmentation as aS
 from pyAudioAnalysis import audioBasicIO as aio
+from pyAudioAnalysis import MidTermFeatures as aF
 from models.test_audio import predict_audio_labels
 import os
 import argparse
@@ -68,7 +69,7 @@ def silence_features(segment_limits,dur):
     return silence_features, number_of_pauses, total_speech
 
 
-def audio_based_feature_extraction(input_file,models_directory):
+def audio_based_feature_extraction(input_file,models_directory, pyaudio_params=None):
     """
         Export all features for a wav file (silence based + classifiers based)
         :param input_file: the audio file
@@ -83,7 +84,7 @@ def audio_based_feature_extraction(input_file,models_directory):
     print(len(x) / fs)
     # get the silence estimates using pyAudioAnalysis semisupervised approach
     # for different windows and steps
-    if dur < 5:
+    if dur < 6.2:
         seg_limits_short = [[0, dur]]
         seg_limits_long = [[0, dur]]
     else:
@@ -127,6 +128,18 @@ def audio_based_feature_extraction(input_file,models_directory):
             feature_names.append(feature_string)
             features.append(feature_value)
 
+    # C. pyaudio features
+    if pyaudio_params:
+        (segment_features_stats, segment_features,
+         pyaudio_feature_names) = aF.mid_feature_extraction(
+            x, fs, round(pyaudio_params['mid_window'] * fs),
+            round(pyaudio_params['mid_step'] * fs),
+            round(fs * pyaudio_params['short_window']),
+            round(fs * pyaudio_params['short_step']))
+
+        features = features + list(segment_features_stats.mean(axis=1))
+        feature_names = feature_names + pyaudio_feature_names
+
     metadata = {
         "Number of pauses short": number_of_pauses_short,
         "Number of pauses long" : number_of_pauses_long,
@@ -160,9 +173,22 @@ if __name__ == '__main__':
                         help="the directory which contains all "
                              "trained classifiers "
                              "(models' files + MEANS files)")
+    parser.add_argument("-f","--fused_features_with_pyaudio", nargs='?', const=1, type=int,
+                        help="if this argument is added then pyaudio features will be concatenated")
     args = parser.parse_args()
-    features, feature_names,metadata = \
-        audio_based_feature_extraction(args.input, args.classifiers_path)
+
+    if args.fused_features_with_pyaudio==None:
+        features, feature_names,metadata = \
+            audio_based_feature_extraction(args.input, args.classifiers_path)
+    elif args.fused_features_with_pyaudio==1:
+        pyaudio_params= {
+            'mid_window': 3,
+            'mid_step': 3,
+            'short_window': 0.05,
+            'short_step': 0.05
+        }
+        features, feature_names, metadata = \
+            audio_based_feature_extraction(args.input, args.classifiers_path,pyaudio_params)
     print("Features names:\n {}".format(feature_names))
     print("Features:\n {}".format(features))
     print("Metadata:\n {}".format(metadata))

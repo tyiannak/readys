@@ -54,14 +54,21 @@ class RecordingLevelFeatureExtraction(object):
         folders = sorted(folders[1:])
         folder_names = [os.path.split(folder)[1] for folder in folders]
         reference_text = self.basic_features_params['reference_text']
+
+        num_of_samples_per_class = []
+        class_names = []
         if folders:
             for folder in folders:
+                count = 0
                 if reference_text:
                     for f in glob.iglob(os.path.join(folder, '*.txt')):
                         textnames.append(f)
                 for f in glob.iglob(os.path.join(folder, '*.wav')):
                     filenames.append(f)
+                    count += 1
                     labels.append(os.path.split(folder)[1])
+                class_names.append(os.path.split(folder)[1])
+                num_of_samples_per_class.append(count)
             folder2idx, idx2folder = folders_mapping(folders=folder_names)
             labels = list(map(lambda x: folder2idx[x], labels))
             labels = np.asarray(labels)
@@ -71,13 +78,21 @@ class RecordingLevelFeatureExtraction(object):
         print(labels)
         print(idx2folder)
         # Match filenames with labels
-
+        print("class names",class_names)
         features, feature_names = \
             self.extract_recording_level_features(filenames,textnames)
+        feature_list = []
+        index = 0
+        for num_of_samples in num_of_samples_per_class:
+            class_features = features[index:index+num_of_samples]
+            class_features = np.asarray(class_features)
+            feature_list.append(class_features)
+            index += num_of_samples
+
         print(feature_names)
         features = np.asarray(features)
 
-        return features, labels, idx2folder
+        return features, labels, idx2folder, feature_list, feature_names, class_names
 
     def extract_recording_level_features(self, filenames,textnames):
         """
@@ -112,7 +127,8 @@ class RecordingLevelFeatureExtraction(object):
 
         # load text classifiers attributes containing embeddings
         # in order not to be loaded for every sample
-        classifiers_attributes = load_classifiers(text_models_directory)
+        if features_type == "fused" or features_type == "text":
+            classifiers_attributes = load_classifiers(text_models_directory)
 
         for count, file in enumerate(filenames):
             if textnames == []:
@@ -120,8 +136,15 @@ class RecordingLevelFeatureExtraction(object):
             else:
                 reference_text = textnames[count]
             if features_type == "fused":
-                audio_features, audio_features_names, _ = \
-                    audio_based_feature_extraction(file, audio_models_directory)
+
+                if self.basic_features_params['audio_features'] == "fused":
+                    audio_features, audio_features_names, _ = \
+                        audio_based_feature_extraction(
+                            file, audio_models_directory,
+                            self.basic_features_params['pyaudio_params'])
+                else:
+                    audio_features, audio_features_names, _ = \
+                        audio_based_feature_extraction(file, audio_models_directory)
                 text_features, text_features_names, _ = \
                     get_asr_features(file, google_credentials,
                                      classifiers_attributes, reference_text,
@@ -130,9 +153,18 @@ class RecordingLevelFeatureExtraction(object):
                 file_recording_level_features = audio_features + text_features
                 file_features_names = audio_features_names + text_features_names
             elif features_type == "audio":
-                file_recording_level_features, file_features_names, _ = \
-                    audio_based_feature_extraction(file, audio_models_directory)
+
+                if self.basic_features_params['audio_features'] == "fused":
+                    file_recording_level_features, file_features_names, _ = \
+                        audio_based_feature_extraction(
+                            file, audio_models_directory,
+                            self.basic_features_params['pyaudio_params'])
+                else:
+                    file_recording_level_features, file_features_names, _ = \
+                        audio_based_feature_extraction(file, audio_models_directory)
             elif features_type == "text":
+                # load text classifiers attributes containing embeddings
+                # in order not to be loaded for every sample
                 file_recording_level_features, file_features_names, _ = \
                     get_asr_features(file, google_credentials,
                                      classifiers_attributes, reference_text,

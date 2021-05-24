@@ -16,62 +16,112 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
 
-def aggregate_annotations(file,class_number):
+def aggregate_annotations(file,class_number,type):
 
     data = pd.read_csv(file)
+    if type == 0:
+        # Create Dataframe
+        aggregation = {'Sample_Name': [],
+                       'Winner_annotation': [],
+                       'Confidence': [],
+                       'Number_annotations': []}
 
-    # Create Dataframe
-    aggregation = {'Sample_Name': [],
-                   'Winner_annotation': [],
-                   'Confidence': [],
-                   'Number_annotations': []}
-    
-    df = pd.DataFrame(aggregation, columns=list(aggregation.keys()))
+        df = pd.DataFrame(aggregation, columns=list(aggregation.keys()))
 
 
-    if class_number==1:
-        num_anot = (pd.crosstab(data.Sample_name, data.Class1))
-        conf = (pd.crosstab(data.Sample_name, data.Class1))
-    elif class_number==2:
-        num_anot = (pd.crosstab(data.Sample_name, data.Class2))
-        conf = (pd.crosstab(data.Sample_name, data.Class2))
+        if class_number==1:
+            num_anot = (pd.crosstab(data.Sample_name, data.Class1))
+            conf = (pd.crosstab(data.Sample_name, data.Class1))
+        elif class_number==2:
+            num_anot = (pd.crosstab(data.Sample_name, data.Class2))
+            conf = (pd.crosstab(data.Sample_name, data.Class2))
+        else:
+            num_anot = (pd.crosstab(data.Sample_name, data.Class3))
+            conf = (pd.crosstab(data.Sample_name, data.Class3))
+
+
+        # Number_annotations
+        num_anot['sum'] = num_anot.sum(axis=1)
+        num_anot = num_anot.reset_index()
+
+        df['Number_annotations'] = num_anot['sum']
+        # Confidence
+        res = conf.div(conf.sum(axis=1), axis=0)*100
+        res = res.reset_index()
+
+        # Values to Dataframe
+        df['Sample_Name'] = res['Sample_name']
+        res=res.drop(['Sample_name'], axis=1)
+        res['Max'] = res.idxmax(axis=1)
+        res['max_value'] = res.max(axis=1)
+        df['Winner_annotation'] = res["Max"]
+        df['Confidence'] = res["max_value"]
+
     else:
-        num_anot = (pd.crosstab(data.Sample_name, data.Class3))
-        conf = (pd.crosstab(data.Sample_name, data.Class3))
+        if class_number == 1:
+            class_name = 'Class1'
+        elif class_number == 2:
+            class_name = 'Class2'
+        else:
+            class_name = 'Class3'
 
-    
-    # Number_annotations
-    num_anot['sum'] = num_anot.sum(axis=1)
-    num_anot = num_anot.reset_index()
+        number_of_annotations, sample_names, mean, dev, winner = [], [], [], [], []
+        winner_without_dev = []
+        for sample in set(data.Sample_name):
+            sample_dataframe = data.loc[data['Sample_name'] == sample]
+            number_of_annotations.append(sample_dataframe.shape[0])
+            mean_value = sample_dataframe[class_name].mean()
+            dev_value  = sample_dataframe[class_name].mad()
+            sample_names.append(sample)
+            mean.append(mean_value)
+            dev.append(dev_value)
+            if mean_value <= 2.5:
+                winner_without_dev.append("negative")
+            elif mean_value >= 3.5:
+                winner_without_dev.append("positive")
+            else:
+                winner_without_dev.append("Nan")
 
-    df['Number_annotations'] = num_anot['sum']
-       
-    # Confidence
-    res = conf.div(conf.sum(axis=1), axis=0)*100
-    res = res.reset_index()
+            if mean_value <= 2.5 and dev_value < 0.75:
+                winner.append("negative")
+                if len(sample_dataframe[class_name].values)>=3:
+                    print(sample_dataframe[class_name].values," mean:",mean_value," σ:", dev_value, " class: negative")
+            elif mean_value >= 3.5 and dev_value < 0.75:
+                winner.append("positive")
+                if len(sample_dataframe[class_name].values)>=3:
+                    print(sample_dataframe[class_name].values," mean:",mean_value," σ:", dev_value, " class: positive")
+            else:
+                winner.append("Nan")
 
-    # Values to Dataframe
-    df['Sample_Name'] = res['Sample_name']
-    sav=res['Sample_name']
-    res=res.drop(['Sample_name'], axis=1)
-    res['Max'] = res.idxmax(axis=1)
-    res['max_value'] = res.max(axis=1)
+        # Create Dataframe
+        aggregation = {'Sample_Name': [],
+                       'Winner_annotation':[],
+                       'Winner_without_dev':[],
+                       'Mean': [],
+                       'Deviation': [],
+                       'Number_annotations': []}
 
-    df['Winner_annotation'] = res["Max"]
-    df['Confidence'] = res["max_value"]
+        df = pd.DataFrame(aggregation, columns=list(aggregation.keys()))
+        df['Sample_Name'] = sample_names
+        df['Winner_annotation'] = winner
+        df['Winner_without_dev'] = winner_without_dev
+        df['Mean'] = mean
+        df['Deviation'] = dev
+        df['Number_annotations'] = number_of_annotations
 
     return df
 
+aggregate_annotations("annotations_database.txt",1,1)
 
 def save_to_csv(df,name):   
 
     df.to_csv(name, index=False)
 
 
-def report_annotations(file, class_number,annotators):
+def report_annotations(file, class_number,annotators,type):
 
     data = pd.read_csv(file)
-    df = aggregate_annotations(file,class_number)
+    df = aggregate_annotations(file,class_number,type)
     csv_name = 'aggregate_annotations_of_class' + str(class_number) + '.csv'
     save_to_csv(df, csv_name)
 
@@ -107,7 +157,7 @@ def report_annotations(file, class_number,annotators):
     plt.savefig(pie_name)
     plt.close()
 
-    # Class distribution (before majority) + plot
+    # Class distribution (before majority or averaging) + plot
 
     count = data[class_column].value_counts()
     count = count.to_frame()
@@ -122,7 +172,7 @@ def report_annotations(file, class_number,annotators):
                                     index=count.index)
 
 
-    print("\nInitial Class Distribution (before majority): "
+    print("\nInitial Class Distribution (before majority or averaging): "
             "\nTotal: %s \n%s" % (data[class_column].shape[0], count))
 
 
@@ -136,7 +186,23 @@ def report_annotations(file, class_number,annotators):
     before_name = 'plots/class_distr_before' + class_column + '.png'
     plt.savefig(before_name)
 
-    # Class distribution (after majority) + plot
+    # Class distribution (after majority or averaging) + plot without deviation (σ)
+    count = df['Winner_without_dev'].value_counts()
+    count = count.to_frame()
+    per = count.div(count.sum(axis=0)) * 100
+    count['Percentage'] = per['Winner_without_dev']
+    count['Percentage'] = pd.Series([round(val, 2)
+                                     for val in count['Percentage']],
+                                    index=count.index)
+    count['Percentage'] = pd.Series(["{0:.2f}%".format(val)
+                                     for val in count['Percentage']],
+                                    index=count.index)
+
+    print(
+        "\nAggregated Class Distribution (after majority or averaging), before applying minimum number of annotators: "
+        "\nBefore applying deviation limitation (σ) \nTotal: %s \n%s" % (df['Winner_without_dev'].shape[0], count))
+
+    # Class distribution (after majority or averaging) + plot with deviation (σ)
     count = df['Winner_annotation'].value_counts()
     count = count.to_frame()
     per = count.div(count.sum(axis=0))*100
@@ -148,8 +214,7 @@ def report_annotations(file, class_number,annotators):
                                      for val in count['Percentage']],
                                     index=count.index)
 
-    print("\nAggregated Class Distribution (after majority): "
-          "\nTotal: %s \n%s"% (df['Winner_annotation'].shape[0], count))
+    print("\nAfter applying deviation limitation (σ) \nTotal: %s \n%s"% (df['Winner_annotation'].shape[0], count))
 
     conf = df['Winner_annotation'].value_counts()
     conf.plot.bar()
@@ -196,15 +261,91 @@ def report_annotations(file, class_number,annotators):
     print('6 annotations:%s %.2f%%' % (count,
                                        numpy.divide(count,
                                                     df['Winner_annotation'].shape[0]) * 100))
+    ann_gr_7 = df[df['Number_annotations'] == 7]
+    count = ann_gr_7['Number_annotations'].count()
+    print('7 annotations:%s %.2f%%' % (count,
+                                       numpy.divide(count,
+                                                    df['Winner_annotation'].shape[0]) * 100))
+    ann_gr_8 = df[df['Number_annotations'] == 8]
+    count = ann_gr_8['Number_annotations'].count()
+    print('8 annotations:%s %.2f%%' % (count,
+                                       numpy.divide(count,
+                                                    df['Winner_annotation'].shape[0]) * 100))
 
-    ann_gr = df[df['Number_annotations'] >= annotators]
+    if type == 0:
+        ann_gr = df[df['Number_annotations'] >= annotators]
 
-    name = 'aggregated_' + class_column + '.csv'
-    ann_gr.to_csv(name, index=False)
+        name = 'aggregated_' + class_column + '.csv'
+        ann_gr.to_csv(name, index=False)
 
-    print("\nAverage agreement : %.2f%%" % ann_gr['Confidence'].mean())
-    print("\n")
+        print("\nAverage agreement : %.2f%%" % ann_gr['Confidence'].mean())
+        print("\n")
+    else:
+        ann_gr = df[df['Number_annotations'] >= annotators]
 
+        ##class distribution after applying minimum annotators
+        count = ann_gr['Winner_without_dev'].value_counts()
+        count = count.to_frame()
+        per = count.div(count.sum(axis=0)) * 100
+        count['Percentage'] = per['Winner_without_dev']
+        count['Percentage'] = pd.Series([round(val, 2)
+                                         for val in count['Percentage']],
+                                        index=count.index)
+        count['Percentage'] = pd.Series(["{0:.2f}%".format(val)
+                                         for val in count['Percentage']],
+                                        index=count.index)
+
+        print(
+            "\nAggregated Class Distribution (after majority or averaging), after applying minimum number of annotators: "
+            "\nBefore applying deviation limitation (σ) \nTotal: %s \n%s" % (ann_gr['Winner_without_dev'].shape[0], count))
+
+        ##class distribution after applying minimum annotators
+        count = ann_gr['Winner_annotation'].value_counts()
+        count = count.to_frame()
+        per = count.div(count.sum(axis=0)) * 100
+        count['Percentage'] = per['Winner_annotation']
+        count['Percentage'] = pd.Series([round(val, 2)
+                                         for val in count['Percentage']],
+                                        index=count.index)
+        count['Percentage'] = pd.Series(["{0:.2f}%".format(val)
+                                         for val in count['Percentage']],
+                                        index=count.index)
+
+        print("\nAfter applying deviation limitation (σ) \nTotal: %s \n%s" % (ann_gr['Winner_annotation'].shape[0], count))
+
+        print("\nAverage disagreement (average σ) : %.2f" % ann_gr['Deviation'].mean())
+        ann_grB = ann_gr[ann_gr['Winner_annotation']!='Nan']
+        print("\nTotal number of final samples : %.0f" % ann_grB['Winner_annotation'].shape[0])
+        name = 'aggregated_' + class_column + '.csv'
+        ann_grB.to_csv(name, index=False)
+
+        ####compute average distance between user and mean
+        if class_number == 1:
+            class_name = 'Class1'
+        elif class_number == 2:
+            class_name = 'Class2'
+        else:
+            class_name = 'Class3'
+        users = []
+        mean_distances = []
+        num_of_samples = []
+        data = data[data.Sample_name.isin(ann_gr.Sample_Name)]
+        for user in set(data.Username):
+            sample_dataframe = data.loc[data['Username'] == user]
+            number_of_samples = sample_dataframe.shape[0]
+            total_distance = 0
+            for index, row in sample_dataframe.iterrows():
+                mean_of_sample = df.loc[df['Sample_Name'] == row['Sample_name']]
+                mean_of_sample = mean_of_sample['Mean'].item()
+                total_distance += abs(mean_of_sample - row[class_name])
+            users.append(user)
+            mean_distances.append(total_distance / number_of_samples)
+            num_of_samples.append(number_of_samples)
+
+        print("\nAverage distance between each annotator and mean value:\n")
+        for count, user in enumerate(users):
+            print("User:", user,"\nAverage Distance:",mean_distances[count],"\nNumber of samples annotated by user:",num_of_samples[count])
+            print("\n")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -212,5 +353,7 @@ if __name__ == "__main__":
                         help="choose one of the three classes: 1 (expressive) ,2 (easy to follow),3 (enjoy)")
     parser.add_argument("-a", "--annotators", type=int, required=True,
                         help="minimum number of annotators to take into account")
+    parser.add_argument("-t","--type_of_aggregation", type=int, required=True,
+                        help="Choose between majority vote (0) or averaging (1)")
     args = parser.parse_args()
-    report_annotations('annotations_database.txt',args.class_number,args.annotators)
+    report_annotations('annotations_database.txt',args.class_number,args.annotators,args.type_of_aggregation)

@@ -15,7 +15,7 @@ An example of such a file is given.
 In order to run the aggregation of annotations write the following command: 
 
 ```
-python3 aggregate_annotations.py -c class_number -a annotators
+python3 aggregate_annotations.py -c class_number -a annotators -t type_of_aggregation
 ``` 
 
 Where: 
@@ -23,17 +23,18 @@ Where:
 - class_number: an integer (1,2 or 3) that defines the classification task we want to aggregate the annotations for. 
 
 - annotators: an integer that defines the annotator's threshold. For example, if annotators = 3 then we take into account only the samples that are annotated by 3 or more annotators. 
+- type_of_aggregation: use 0 for majority vote or 1 for averaging
 
 ### results
 When running the above command, the following files will be produced: 
 
-- aggergate_annotations_of_classX.csv : this file contains the winner annotation, the confidence of the agreement and the number of annotations per sample (for all samples regardless of the number of annotations). These concern the classification task X (where X = 1,2 or 3). 
+- aggergate_annotations_of_classX.csv : In case of majority vote, this file contains the winner annotation, the confidence of the agreement and the number of annotations per sample (for all samples regardless of the number of annotations). These concern the classification task X (where X = 1,2 or 3). In case of averaging, this file contains the winner annotation produced by mean and deviation limitatons, the winner_without_dev produced by mean limitation, the mean, the deviation and the number of annotations per sample. 
 
-- aggregated_ClassX.csv : this file contains the same information as aggregate_annotations_of_classX.csv, but only for the samples withe number_of_annotations >= annotators (as specified in the input)  
+- aggregated_ClassX.csv : this file contains the same information as aggregate_annotations_of_classX.csv, but only for the samples with number_of_annotations >= annotators (as specified in the input)  
 
 - plots/pieClassX.png : a pie figure with the distribution of annotations among users for classification task X.  
 
-- plots/class_distr_beforeClassX.png :  a figure of number of annotatinos per class for classification task X (taking into account all the inital annotations, before averaging) 
+- plots/class_distr_beforeClassX.png :  a figure of number of annotatinos per class for classification task X (taking into account all the inital annotations, before averaging or majority voting) 
 
 - plots/class_distr_afterClassX.png : a figure of number of annotations per class for classification task X (taking into account the resulting winner_annotations) 
 
@@ -54,3 +55,17 @@ Where:
 - input_data: the directory with all audio files collected 
 
 The above command will create a directory datasets/name_of_classification_task which will contain all samples from aggregated_ClassX.csv organized in subfolders.
+
+### convert.py 
+This file is responsible for converting all the audio files into wav format, with defined sampling rate and channels. It also replaces the whitespaces in the file name with underscores. 
+
+To run this file:
+```
+python3 convert.py files_folder samplingRate channels out_path
+```
+Where: 
+
+- files_folder: the folder of the audio files to be converted
+- samplingRate: the sampling rate into which audio files will be converted
+- channels: the number of channels to use
+- out_path: the directory for the converted files to be stored
