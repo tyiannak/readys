@@ -92,7 +92,7 @@ class RecordingLevelFeatureExtraction(object):
         print(feature_names)
         features = np.asarray(features)
 
-        return features, labels, idx2folder, feature_list, feature_names, class_names
+        return features, labels, idx2folder, feature_list, feature_names, class_names, filenames
 
     def extract_recording_level_features(self, filenames,textnames):
         """

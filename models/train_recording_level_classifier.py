@@ -32,13 +32,13 @@ def recording_level_classifier(inputs_path,model_name):
     '''
     basic_features_params = config
     feature_extractor = RecordingLevelFeatureExtraction(basic_features_params)
-    features, labels, class_mapping, feature_list, feature_names, class_names = feature_extractor.transform(inputs_path)
+    features, labels, class_mapping, feature_list, feature_names, class_names, filenames = feature_extractor.transform(inputs_path)
 
-    plot_feature_histograms(feature_list, feature_names, class_names)
+
 
     is_imbalanced = check_balance(labels)
 
-    clf = train_recording_level_classifier(features, labels, is_imbalanced, config, seed)
+    clf = train_recording_level_classifier(features, labels, is_imbalanced, config, filenames, seed)
     model_dict = {}
     model_dict['classifier_type'] = config['classifier_type']
     model_dict['class_mapping'] = class_mapping
@@ -53,6 +53,7 @@ def recording_level_classifier(inputs_path,model_name):
         save_model(model_dict,out_folder, name="basic_classifier")
     else:
         save_model(model_dict,out_folder, out_model=model_name)
+    plot_feature_histograms(feature_list, feature_names, class_names)
     return None
 
 if __name__ == '__main__':

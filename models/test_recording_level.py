@@ -58,7 +58,7 @@ def predict_recording_level_label(audio_file, model_path):
         textfile = [os.path.join(folder, file_name)]
     else:
         textfile = []
-    feature_matrix, _ = \
+    feature_matrix, _ , _, _, _, _, _ = \
         feature_extractor.extract_recording_level_features([audio_file],
                                                            textfile)
 

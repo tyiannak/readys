@@ -16,7 +16,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.model_selection import GridSearchCV
-from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.model_selection import RepeatedStratifiedKFold, StratifiedShuffleSplit, GroupShuffleSplit
 from sklearn import preprocessing
 from sklearn import svm
 from xgboost import XGBClassifier
@@ -249,7 +249,6 @@ def convert_to_fasttext_data(labels, transcriptions):
     :param filename: file to save the output data
     """
     data = []
-
     for label, trans in zip(labels, transcriptions):
         trans_pre = text_preprocess(trans)
         data.append("__label__" + label + " " + trans_pre)
@@ -287,6 +286,7 @@ def seed_torch():
 
 def bert_dataframe(sentences, labels):
     d = {'sentence': sentences, 'label': labels}
+    print(d)
     df = pd.DataFrame(d)
     return df
 
@@ -436,8 +436,34 @@ def get_color_combinations(n_classes):
                                               clr_map(range_cl[i])[3]))
     return clr
 
+def make_group_list(filenames):
+    '''
+    This function is responsible for creating group id of every sample according to the speaker
+    :param filenames: list of samples' names
+    :return: list of group ids
+    '''
+    groups_id = []
+    groups_name =[]
+    id = 1
+    for f in filenames:
+        user_name = f.split('/')
+        user_name = user_name[-1].split('_')
+        user_name = user_name[1]
+        found = False
+        for count, gr in enumerate(groups_id):
+            if user_name == groups_name[count]:
+                groups_id.append(gr)
+                groups_name.append(user_name)
+                found = True
+                break
+        if found == False:
+            groups_id.append(id)
+            groups_name.append(user_name)
+            id += 1
+    return groups_id
+
 def grid_init(clf, clf_name, parameters_dict,
-              is_imbalanced, scoring, refit, seed=None):
+              is_imbalanced, scoring, refit, seed=None, group=False):
     """
     Initializes a grid using:
         1. a pipeline containing:
@@ -454,6 +480,7 @@ def grid_init(clf, clf_name, parameters_dict,
     :param parameters_dict: dictionary of parameters to be optimized
     :param is_imbalanced: True if the dataset is imbalanced, False otherwise
     :param seed: seed
+    :param filenames: None if no independent split needed, filenames of samples for independent-speaker split
     :return: initialized grid
     """
     if is_imbalanced:
@@ -477,7 +504,10 @@ def grid_init(clf, clf_name, parameters_dict,
             ('scaler', scaler), ('thresholder', thresholder),
             ('pca', pca), (clf_name, clf)], memory='sklearn_tmp_memory')
 
-    cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3)
+    if group:
+        cv = GroupShuffleSplit(n_splits=5)
+    else:
+        cv = RepeatedStratifiedKFold(n_splits=5,n_repeats=3)
 
     grid_clf = GridSearchCV(
         pipe, parameters_dict, cv=cv,
@@ -495,9 +525,7 @@ def _count_score(y_true, y_pred, label1=0, label2=1):
                 for y, pred in zip(y_true, y_pred))
 
 
-def print_grid_results(grid, metric, labels_set):
-
-    num_splits = 5 * 3  # splits of cross validation
+def print_grid_results(grid, metric, labels_set, num_splits):
 
     clf_params = grid.best_params_
     clf_score = grid.best_score_
@@ -584,13 +612,15 @@ def train_basic_segment_classifier(feature_matrix, labels,
     grid_clf.fit(feature_matrix, labels)
 
     clf_svc = grid_clf.best_estimator_
-    print_grid_results(grid_clf, config['metric'], labels_set)
 
+    num_splits = 5 * 3
+    print_grid_results(grid_clf, config['metric'], labels_set,num_splits)
+    clf_svc.fit(feature_matrix, labels)
     return clf_svc
 
 
 def train_recording_level_classifier(feature_matrix, labels,
-                                     is_imbalanced, config, seed=None):
+                                     is_imbalanced, config, filenames, seed=None):
     """
         Trains basic (i.e. svm,svm rbf,gradientboosting,knn,
         randomforest,extratrees) classifier pipeline
@@ -620,7 +650,8 @@ def train_recording_level_classifier(feature_matrix, labels,
 
     scorer[config['metric']] = metric
 
-    n_components = [None]
+    n_components = [0.98, 0.99, 'mle', None]
+
     if config['classifier_type'] == 'svm_rbf':
         clf = svm.SVC(kernel='rbf', probability=True,
                       class_weight='balanced')
@@ -633,7 +664,7 @@ def train_recording_level_classifier(feature_matrix, labels,
 
         grid_clf = grid_init(clf, "SVM_RBF", parameters_dict,
                              is_imbalanced, scoring=scorer,
-                             refit=config['metric'], seed=seed)
+                             refit=config['metric'], seed=seed, group=True)
         print("--> Training SVM rbf classifier using GridSearchCV")
     elif config['classifier_type'] == 'svm':
         clf = svm.SVC(class_weight='balanced')
@@ -646,7 +677,7 @@ def train_recording_level_classifier(feature_matrix, labels,
 
         grid_clf = grid_init(clf, "SVM", parameters_dict,
                              is_imbalanced, scoring=scorer,
-                             refit=config['metric'], seed=seed)
+                             refit=config['metric'], seed=seed, group=True)
         print("--> Training SVM classifier using GridSearchCV")
     elif config['classifier_type'] == 'randomforest':
         clf = RandomForestClassifier()
@@ -658,7 +689,7 @@ def train_recording_level_classifier(feature_matrix, labels,
 
         grid_clf = grid_init(clf, "RandomForest", parameters_dict,
                              is_imbalanced, scoring=scorer,
-                             refit=config['metric'], seed=seed)
+                             refit=config['metric'], seed=seed, group=True)
         print("--> Training Random Forest classifier using GridSearchCV")
     elif config['classifier_type'] == 'knn':
         clf = KNeighborsClassifier()
@@ -667,7 +698,7 @@ def train_recording_level_classifier(feature_matrix, labels,
                                Knn__n_neighbors=classifier_parameters['n_neighbors'])
         grid_clf = grid_init(clf, "Knn", parameters_dict,
                              is_imbalanced, scoring=scorer,
-                             refit=config['metric'], seed=seed)
+                             refit=config['metric'], seed=seed, group=True)
         print("--> Training Knn classifier using GridSearchCV")
     elif config['classifier_type'] == 'gradientboosting':
         clf = GradientBoostingClassifier()
@@ -678,7 +709,7 @@ def train_recording_level_classifier(feature_matrix, labels,
 
         grid_clf = grid_init(clf, "GradientBoosting", parameters_dict,
                              is_imbalanced, scoring=scorer,
-                             refit=config['metric'], seed=seed)
+                             refit=config['metric'], seed=seed, group=True)
         print("--> Training Gradient Boosting classifier using GridSearchCV")
     elif config['classifier_type'] == 'extratrees':
         clf = ExtraTreesClassifier()
@@ -689,12 +720,24 @@ def train_recording_level_classifier(feature_matrix, labels,
 
         grid_clf = grid_init(clf, "Extratrees", parameters_dict,
                              is_imbalanced, scoring=scorer,
-                             refit=config['metric'], seed=seed)
+                             refit=config['metric'], seed=seed, group=True)
         print("--> Training Extra Trees classifier using GridSearchCV")
 
-    grid_clf.fit(feature_matrix, labels)
+    groups = make_group_list(filenames)
+    grid_clf.fit(feature_matrix, labels, groups=groups)
+    print(groups)
 
+    #print the group ids of the samples for every train and test split, in order to
+    #check if test set incorporates ids that do not appear in train set
+    for train, test in grid_clf.cv.split(feature_matrix, labels, groups=groups):
+        print('TRAIN: ', train, ' TEST: ', test)
+        print([groups[t] for t in train])
+        print([groups[t] for t in test])
+
+    
     clf_svc = grid_clf.best_estimator_
-    print_grid_results(grid_clf, config['metric'], labels_set)
+    clf_svc.fit(feature_matrix, labels)
+    num_splits = 5
+    print_grid_results(grid_clf, config['metric'], labels_set,num_splits)
 
     return clf_svc
