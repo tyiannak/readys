@@ -31,6 +31,7 @@ from gensim.models import KeyedVectors
 from pathlib import Path
 import torch
 import plotly
+import plotly.subplots as plotly_sub
 import plotly.graph_objs as go
 import matplotlib.pyplot as plt
 
@@ -402,7 +403,7 @@ def plot_feature_histograms(list_of_feature_mtr, feature_names,
     n_features = len(feature_names)
     n_bins = 12
     n_rows = int(n_features / n_columns) + 1
-    figs = plotly.subplots.make_subplots(rows=n_rows, cols=n_columns,
+    figs = plotly_sub.make_subplots(rows=n_rows, cols=n_columns,
                                       subplot_titles=feature_names)
     figs['layout'].update(height=(n_rows * 250))
     clr = get_color_combinations(len(class_names))
@@ -462,6 +463,7 @@ def make_group_list(filenames):
             id += 1
     return groups_id
 
+
 def grid_init(clf, clf_name, parameters_dict,
               is_imbalanced, scoring, refit, seed=None, group=False):
     """
@@ -507,7 +509,7 @@ def grid_init(clf, clf_name, parameters_dict,
     if group:
         cv = GroupShuffleSplit(n_splits=5)
     else:
-        cv = RepeatedStratifiedKFold(n_splits=5,n_repeats=3)
+        cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3)
 
     grid_clf = GridSearchCV(
         pipe, parameters_dict, cv=cv,
@@ -619,6 +621,43 @@ def train_basic_segment_classifier(feature_matrix, labels,
     return clf_svc
 
 
+def repeated_grouped_KFold(feature_matrix, labels, grid_clf, config, groups):
+
+    labels_set = sorted(set(labels))
+    print("---> Group indices: \n{}".format(groups))
+
+    # run 3 times 5-Fold cross-val
+    clf_scores = []
+    test_lengths = []
+    for idx in range(10):
+        print("--> {} of {} 5-Fold Cross Val:".format(idx + 1, 10))
+        grid_clf.fit(feature_matrix, labels, groups=groups)
+        clf_score = grid_clf.best_score_
+        clf_scores.append(clf_score)
+
+        # print the group ids of the samples for every train and test split, in order to
+        # check if test set incorporates ids that do not appear in train set
+        for train, test in grid_clf.cv.split(feature_matrix, labels, groups=groups):
+            print('TRAIN: ', train, ' TEST: ', test)
+            print([groups[t] for t in train])
+            print([groups[t] for t in test])
+            test_lengths.append(len(test))
+
+        num_splits = 5
+        print_grid_results(grid_clf, config['metric'], labels_set, num_splits)
+
+    test_samples = 0
+    test_true = 0
+    for (score, length) in zip(clf_scores, test_lengths):
+        test_samples += length
+        test_true += score * length
+
+    test_score = test_true / test_samples
+    print("\nMEAN F1 MACRO ACROSS ALL TESTS: {}".format(test_score))
+
+    return grid_clf
+
+
 def train_recording_level_classifier(feature_matrix, labels,
                                      is_imbalanced, config, filenames, seed=None):
     """
@@ -723,21 +762,11 @@ def train_recording_level_classifier(feature_matrix, labels,
                              refit=config['metric'], seed=seed, group=True)
         print("--> Training Extra Trees classifier using GridSearchCV")
 
+
     groups = make_group_list(filenames)
-    grid_clf.fit(feature_matrix, labels, groups=groups)
-    print(groups)
+    grid_clf = repeated_grouped_KFold(feature_matrix, labels, grid_clf, config, groups)
 
-    #print the group ids of the samples for every train and test split, in order to
-    #check if test set incorporates ids that do not appear in train set
-    for train, test in grid_clf.cv.split(feature_matrix, labels, groups=groups):
-        print('TRAIN: ', train, ' TEST: ', test)
-        print([groups[t] for t in train])
-        print([groups[t] for t in test])
-
-    
     clf_svc = grid_clf.best_estimator_
     clf_svc.fit(feature_matrix, labels)
-    num_splits = 5
-    print_grid_results(grid_clf, config['metric'], labels_set,num_splits)
 
     return clf_svc
