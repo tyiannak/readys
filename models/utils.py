@@ -701,8 +701,8 @@ def make_graphics(cm,mean_f1):
     for (array1,array2) in zip(fpr1_total,tpr1_total):
         final1_fpr += array1
         final1_tpr += array2
-    final1_fpr = final1_fpr/15
-    final1_tpr = final1_tpr/15
+    final1_fpr = final1_fpr/30
+    final1_tpr = final1_tpr/30
 
     # compute the mean false positive rates and true positive rates over all of 15 test sets (3*5)
     # for CLASS 1
@@ -713,8 +713,8 @@ def make_graphics(cm,mean_f1):
     for (array1, array2) in zip(fpr2_total, tpr2_total):
         final2_fpr += array1
         final2_tpr += array2
-    final2_fpr = final2_fpr / 15
-    final2_tpr = final2_tpr / 15
+    final2_fpr = final2_fpr / 30
+    final2_tpr = final2_tpr / 30
     figs.append_trace(go.Scatter(x=final1_fpr, y=final1_tpr, showlegend=False), 2, 1)
     figs.append_trace(go.Scatter(x=final2_fpr, y=final2_tpr, showlegend=False), 2, 2)
     figs.update_xaxes(title_text="false positive rate", row=2, col=1)
@@ -733,8 +733,8 @@ def repeated_grouped_KFold(feature_matrix, labels, grid_clf, config, groups):
 
     num_test_samples = []
 
-    for idx in range(3):
-        print("--> {} of {} 5-Fold Cross Val:".format(idx + 1, 3))
+    for idx in range(10):
+        print("--> {} of {} 5-Fold Cross Val:".format(idx + 1, 10))
         grid_clf.fit(feature_matrix, labels, groups=groups)
         clf_score = grid_clf.best_score_
         clf_scores.append(clf_score)
@@ -758,7 +758,7 @@ def repeated_grouped_KFold(feature_matrix, labels, grid_clf, config, groups):
             auc = [x + y for x, y in zip(auc, auc_total)]
         num_test_samples.append(num)
     #take mean auc across three gridsearches
-    auc = [item/3 for item in auc]
+    auc = [item/10 for item in auc]
 
     #take the mean cm of all of the gridsearches
     cm_total = cm_total/cm_total.sum()
