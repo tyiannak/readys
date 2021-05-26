@@ -140,11 +140,17 @@ class RecordingLevelFeatureExtraction(object):
                 if self.basic_features_params['audio_features'] == "fused":
                     audio_features, audio_features_names, _ = \
                         audio_based_feature_extraction(
-                            file, audio_models_directory,
-                            self.basic_features_params['pyaudio_params'])
+                            file, audio_models_directory, mode=1,
+                            pyaudio_params=self.basic_features_params['pyaudio_params'])
+                elif self.basic_features_params['audio_features'] == "pyaudio":
+                    audio_features, audio_features_names, _ = \
+                        audio_based_feature_extraction(
+                            file, audio_models_directory, mode=2,
+                            pyaudio_params=self.basic_features_params['pyaudio_params'])
                 else:
                     audio_features, audio_features_names, _ = \
-                        audio_based_feature_extraction(file, audio_models_directory)
+                        audio_based_feature_extraction(
+                            file, audio_models_directory, mode=0)
                 text_features, text_features_names, _ = \
                     get_asr_features(file, google_credentials,
                                      classifiers_attributes, reference_text,
@@ -153,15 +159,22 @@ class RecordingLevelFeatureExtraction(object):
                 file_recording_level_features = audio_features + text_features
                 file_features_names = audio_features_names + text_features_names
             elif features_type == "audio":
-
                 if self.basic_features_params['audio_features'] == "fused":
-                    file_recording_level_features, file_features_names, _ = \
+                    audio_features, file_features_names, _ = \
                         audio_based_feature_extraction(
-                            file, audio_models_directory,
-                            self.basic_features_params['pyaudio_params'])
+                            file, audio_models_directory, mode=1,
+                            pyaudio_params=self.basic_features_params['pyaudio_params'])
+                elif self.basic_features_params['audio_features'] == "pyaudio":
+                    audio_features, file_features_names, _ = \
+                        audio_based_feature_extraction(
+                            file, audio_models_directory, mode=2,
+                            pyaudio_params=self.basic_features_params['pyaudio_params'])
                 else:
-                    file_recording_level_features, file_features_names, _ = \
-                        audio_based_feature_extraction(file, audio_models_directory)
+                    audio_features, file_features_names, _ = \
+                        audio_based_feature_extraction(
+                            file, audio_models_directory, mode=0)
+
+                file_recording_level_features = audio_features
             elif features_type == "text":
                 # load text classifiers attributes containing embeddings
                 # in order not to be loaded for every sample
