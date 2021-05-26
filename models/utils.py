@@ -11,7 +11,7 @@ from collections import Counter
 from collections import defaultdict
 from sklearn.metrics import make_scorer
 from sklearn.metrics import f1_score
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, precision_recall_curve, roc_curve, auc
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
@@ -34,6 +34,12 @@ import plotly
 import plotly.subplots as plotly_sub
 import plotly.graph_objs as go
 import matplotlib.pyplot as plt
+from pyAudioAnalysis import audioTrainTest as aT
+
+fpr0_total = []
+tpr0_total = []
+fpr1_total = []
+tpr1_total = []
 
 def text_preprocess(document):
     """
@@ -513,7 +519,7 @@ def grid_init(clf, clf_name, parameters_dict,
 
     grid_clf = GridSearchCV(
         pipe, parameters_dict, cv=cv,
-        scoring=scoring, refit=refit, n_jobs=-1)
+        scoring=scoring, refit=refit, n_jobs=1)
 
     return grid_clf
 
@@ -526,6 +532,26 @@ def _count_score(y_true, y_pred, label1=0, label2=1):
     return sum((y == label1 and pred == label2)
                 for y, pred in zip(y_true, y_pred))
 
+# define scoring function
+
+def custom_auc(ground_truth, predictions,pos_label=1):
+     # I need only one column of predictions["0" and "1"]. You can get an error here
+     # while trying to return both columns at once
+     fpr, tpr, _ = roc_curve(ground_truth, predictions[:, pos_label], pos_label=pos_label)
+     print(predictions)
+     '''
+     if pos_label==0:
+        global fpr0_total
+        global tpr0_total
+        fpr0_total.append(fpr)
+        tpr0_total.append(tpr)
+     else:
+         global fpr1_total
+         global tpr1_total
+         fpr1_total.append(fpr)
+         tpr1_total.append(tpr)
+    '''
+     return auc(fpr, tpr)
 
 def print_grid_results(grid, metric, labels_set, num_splits):
 
@@ -538,18 +564,34 @@ def print_grid_results(grid, metric, labels_set, num_splits):
 
     best_index = grid.best_index_
     confusion = defaultdict(lambda: defaultdict(int))
+    num_test_samples = 0
     for label1 in labels_set:
         for label2 in labels_set:
             for i in range(num_splits):
                 key = 'split%s_test_count_%s_%s' % (i, label1, label2)
+                print(grid.cv_results_[key][best_index])
                 val = int(grid.cv_results_[key][best_index])
                 confusion[label1][label2] += val
+                #calculate the number of all the test samples across the test folds
+                num_test_samples += val
     confusion = {key: dict(value) for key, value in confusion.items()}
 
     confusion = pd.DataFrame.from_dict(confusion,orient='index')
 
-    print("--> Confusion matrix of the best classifier (measured on the validation set):")
+    print("--> Confusion matrix of the best classifier (sum across all tests):")
     print(confusion)
+    auc_total = []
+    for label in labels_set:
+        auc = 0
+        for i in range(num_splits):
+            key1 = 'split%s_test_auc_%s' % (i,label)
+            #summarize all the roc values of all test sets
+            auc += grid.cv_results_[key1][best_index]
+        #take mean auc value over all the test sets
+        auc = auc/num_splits
+        #save auc mean value computed on positive class = current label
+        auc_total.append(auc)
+    return num_test_samples, auc_total, confusion
 
 
 def train_basic_segment_classifier(feature_matrix, labels,
@@ -583,7 +625,10 @@ def train_basic_segment_classifier(feature_matrix, labels,
             scorer['count_%s_%s' % (label1, label2)] = count_score
 
     scorer[config['metric']] = metric
-
+    for label in labels_set:
+        fpr, tpr = make_scorer(custom_auc,pos_label=label, needs_proba=True)
+        scorer['roc_fpr_%s' % label] = fpr
+        scorer['roc_tpr_%s' % label] = tpr
     if config['svm']:
         clf = svm.SVC(kernel=config['svm_parameters']['kernel'], probability=True,
                       class_weight='balanced')
@@ -616,10 +661,69 @@ def train_basic_segment_classifier(feature_matrix, labels,
     clf_svc = grid_clf.best_estimator_
 
     num_splits = 5 * 3
-    print_grid_results(grid_clf, config['metric'], labels_set,num_splits)
+    _,_,_ = print_grid_results(grid_clf, config['metric'], labels_set,num_splits)
     clf_svc.fit(feature_matrix, labels)
     return clf_svc
 
+def make_graphics(cm,mean_f1):
+
+    titles = ["Confusion matrix, Mean F1 (macro): {:.1f}%".format(100 * mean_f1),
+              "Class-wise Performance measures",
+              "ROC for class 0",
+              "ROC for class 1"]
+    rec_c, pre_c, f1_c = aT.compute_class_rec_pre_f1(cm)
+    figs = plotly.subplots.make_subplots(rows=2, cols=2,
+                                         subplot_titles=titles)
+
+    heatmap = go.Heatmap(z=np.flip(cm, axis=0), x=cm,
+                         y=[0,1],
+                         colorscale=[[0, '#4422ff'], [1, '#ff4422']],
+                         name="confusion matrix", showscale=False)
+    mark_prop1 = dict(color='rgba(80, 220, 150, 0.5)',
+                      line=dict(color='rgba(80, 220, 150, 1)', width=2))
+    mark_prop2 = dict(color='rgba(80, 150, 220, 0.5)',
+                      line=dict(color='rgba(80, 150, 220, 1)', width=2))
+    mark_prop3 = dict(color='rgba(250, 150, 150, 0.5)',
+                      line=dict(color='rgba(250, 150, 150, 1)', width=3))
+    b1 = go.Bar(x=[0,1], y=rec_c, name="Recall", marker=mark_prop1)
+    b2 = go.Bar(x=[0,1], y=pre_c, name="Precision", marker=mark_prop2)
+    b3 = go.Bar(x=[0,1], y=f1_c, name="F1", marker=mark_prop3)
+
+    figs.append_trace(heatmap, 1, 1);
+    figs.append_trace(b1, 1, 2)
+    figs.append_trace(b2, 1, 2);
+    figs.append_trace(b3, 1, 2)
+
+    #compute the mean false positive rates and true positive rates over all of 15 test sets (3*5)
+    #for CLASS 0
+    global fpr1_total
+    global tpr1_total
+    final1_fpr = [0] * fpr1_total[0].size()
+    final1_tpr = [0] * tpr1_total[0].size()
+    for (array1,array2) in zip(fpr1_total,tpr1_total):
+        final1_fpr += array1
+        final1_tpr += array2
+    final1_fpr = final1_fpr/15
+    final1_tpr = final1_tpr/15
+
+    # compute the mean false positive rates and true positive rates over all of 15 test sets (3*5)
+    # for CLASS 1
+    global fpr2_total
+    global tpr2_total
+    final2_fpr = [0] * len(fpr2_total[0])
+    final2_tpr = [0] * len(tpr2_total[0])
+    for (array1, array2) in zip(fpr2_total, tpr2_total):
+        final2_fpr += array1
+        final2_tpr += array2
+    final2_fpr = final2_fpr / 15
+    final2_tpr = final2_tpr / 15
+    figs.append_trace(go.Scatter(x=final1_fpr, y=final1_tpr, showlegend=False), 2, 1)
+    figs.append_trace(go.Scatter(x=final2_fpr, y=final2_tpr, showlegend=False), 2, 2)
+    figs.update_xaxes(title_text="false positive rate", row=2, col=1)
+    figs.update_yaxes(title_text="true positive rate", row=2, col=1)
+    figs.update_xaxes(title_text="false positive rate", row=2, col=2)
+    figs.update_yaxes(title_text="true positive rate", row=2, col=2)
+    plotly.offline.plot(figs, filename="figs.html", auto_open=True)
 
 def repeated_grouped_KFold(feature_matrix, labels, grid_clf, config, groups):
 
@@ -628,9 +732,11 @@ def repeated_grouped_KFold(feature_matrix, labels, grid_clf, config, groups):
 
     # run 3 times 5-Fold cross-val
     clf_scores = []
-    test_lengths = []
-    for idx in range(10):
-        print("--> {} of {} 5-Fold Cross Val:".format(idx + 1, 10))
+
+    num_test_samples = []
+
+    for idx in range(3):
+        print("--> {} of {} 5-Fold Cross Val:".format(idx + 1, 3))
         grid_clf.fit(feature_matrix, labels, groups=groups)
         clf_score = grid_clf.best_score_
         clf_scores.append(clf_score)
@@ -641,20 +747,38 @@ def repeated_grouped_KFold(feature_matrix, labels, grid_clf, config, groups):
             print('TRAIN: ', train, ' TEST: ', test)
             print([groups[t] for t in train])
             print([groups[t] for t in test])
-            test_lengths.append(len(test))
 
         num_splits = 5
-        print_grid_results(grid_clf, config['metric'], labels_set, num_splits)
+        num, auc_total, confusion =  print_grid_results(grid_clf, config['metric'], labels_set, num_splits)
+        if idx == 0:
+            cm_total = confusion.to_numpy()
+            auc = auc_total
+        else:
+            #summarize all cm over the three gridsearches
+            cm_total += confusion.to_numpy()
+            #summarize all the auc values(for both positive class cases) over the three gridsearches
+            auc = [x + y for x, y in zip(auc, auc_total)]
+        num_test_samples.append(num)
+    #take mean auc across three gridsearches
+    auc = [item/3 for item in auc]
+    #take the mean cm of all of the gridsearches
+    cm_total = cm_total/cm_total.sum()
 
+    #calculate the mean f1 score across all tests of all gridsearches
     test_samples = 0
     test_true = 0
-    for (score, length) in zip(clf_scores, test_lengths):
+    for (score, length) in zip(clf_scores, num_test_samples):
         test_samples += length
         test_true += score * length
 
     test_score = test_true / test_samples
-    print("\nMEAN F1 MACRO ACROSS ALL TESTS: {}".format(test_score))
+    print("\nMEAN F1 MACRO ACROSS ALL TESTS OF ALL GRIDSEARCHES: {}".format(test_score))
 
+    #print the mean auc value for every positive class
+    for i in len(auc):
+        print("\nMEAN AUC FOR CLASS {} ACROSS ALL TESTS OF ALL GRIDSEARCHES: {}".format(i,auc[i]))
+    #make graphics of confusion matrix, class-wise performance measures and roc curves for every positive class
+    #make_graphics(cm_total,test_score)
     return grid_clf
 
 
@@ -687,15 +811,19 @@ def train_recording_level_classifier(feature_matrix, labels,
                                       label2=label2)
             scorer['count_%s_%s' % (label1, label2)] = count_score
 
+    for label in labels_set:
+        auc = make_scorer(custom_auc,pos_label=label,greater_is_better=True, needs_proba=True)
+        scorer['auc_%s' % label] = auc
+
     scorer[config['metric']] = metric
 
-    n_components = [0.98, 0.99, 'mle', None]
+    n_components = [0.99]
 
     if config['classifier_type'] == 'svm_rbf':
         clf = svm.SVC(kernel='rbf', probability=True,
                       class_weight='balanced')
-        svm_parameters = {'gamma': ['auto', 'scale'],
-                          'C': [1e-1, 1, 5, 1e1]}
+        svm_parameters = {'gamma': ['auto'],
+                          'C': [1]}
 
         parameters_dict = dict(pca__n_components=n_components,
                                SVM_RBF__gamma=svm_parameters['gamma'],
