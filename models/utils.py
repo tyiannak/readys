@@ -537,8 +537,7 @@ def _count_score(y_true, y_pred, label1=0, label2=1):
 def custom_auc(ground_truth, predictions,pos_label=1):
      # I need only one column of predictions["0" and "1"]. You can get an error here
      # while trying to return both columns at once
-     fpr, tpr, _ = roc_curve(ground_truth, predictions[:, pos_label], pos_label=pos_label)
-     print(predictions)
+     fpr, tpr, _ = roc_curve(ground_truth, predictions, pos_label=pos_label)
      '''
      if pos_label==0:
         global fpr0_total
@@ -569,7 +568,6 @@ def print_grid_results(grid, metric, labels_set, num_splits):
         for label2 in labels_set:
             for i in range(num_splits):
                 key = 'split%s_test_count_%s_%s' % (i, label1, label2)
-                print(grid.cv_results_[key][best_index])
                 val = int(grid.cv_results_[key][best_index])
                 confusion[label1][label2] += val
                 #calculate the number of all the test samples across the test folds
@@ -761,6 +759,7 @@ def repeated_grouped_KFold(feature_matrix, labels, grid_clf, config, groups):
         num_test_samples.append(num)
     #take mean auc across three gridsearches
     auc = [item/3 for item in auc]
+
     #take the mean cm of all of the gridsearches
     cm_total = cm_total/cm_total.sum()
 
@@ -775,8 +774,8 @@ def repeated_grouped_KFold(feature_matrix, labels, grid_clf, config, groups):
     print("\nMEAN F1 MACRO ACROSS ALL TESTS OF ALL GRIDSEARCHES: {}".format(test_score))
 
     #print the mean auc value for every positive class
-    for i in len(auc):
-        print("\nMEAN AUC FOR CLASS {} ACROSS ALL TESTS OF ALL GRIDSEARCHES: {}".format(i,auc[i]))
+    for count,i in enumerate(auc):
+        print("\nMEAN AUC FOR CLASS {} ACROSS ALL TESTS OF ALL GRIDSEARCHES: {}".format(count,i))
     #make graphics of confusion matrix, class-wise performance measures and roc curves for every positive class
     #make_graphics(cm_total,test_score)
     return grid_clf
