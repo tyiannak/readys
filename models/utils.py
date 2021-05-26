@@ -414,14 +414,23 @@ def plot_feature_histograms(list_of_feature_mtr, feature_names,
     for i in range(n_features):
         # for each feature get its bin range (min:(max-min)/n_bins:max)
         f = np.vstack([x[:, i:i + 1] for x in list_of_feature_mtr])
-        bins = np.arange(f.min(), f.max(), (f.max() - f.min()) / n_bins)
+        unique_value = False
+        if f.max() == f.min():
+            unique_value = True
+            value = f.min()
+        else:
+            bins = np.arange(f.min(), f.max(), (f.max() - f.min()) / n_bins)
         for fi, f in enumerate(list_of_feature_mtr):
             # load the color for the current class (fi)
             mark_prop = dict(color=clr[fi], line=dict(color=clr[fi], width=3))
             # compute the histogram of the current feature (i) and normalize:
-            h, _ = np.histogram(f[:, i], bins=bins)
-            h = h.astype(float) / h.sum()
-            cbins = (bins[0:-1] + bins[1:]) / 2
+            if unique_value == False:
+                h, _ = np.histogram(f[:, i], bins=bins)
+                h = h.astype(float) / h.sum()
+                cbins = (bins[0:-1] + bins[1:]) / 2 
+            else:
+                h=[1.0]
+                cbins = [value]
             scatter_1 = go.Scatter(x=cbins, y=h, name=class_names[fi],
                                    marker=mark_prop, showlegend=(i == 0))
             # (show the legend only on the first line)
