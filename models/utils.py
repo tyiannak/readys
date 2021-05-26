@@ -11,7 +11,7 @@ from collections import Counter
 from collections import defaultdict
 from sklearn.metrics import make_scorer
 from sklearn.metrics import f1_score
-from sklearn.metrics import accuracy_score, precision_recall_curve, roc_curve, auc
+from sklearn.metrics import accuracy_score, precision_recall_curve, roc_curve, auc, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
@@ -36,10 +36,8 @@ import plotly.graph_objs as go
 import matplotlib.pyplot as plt
 from pyAudioAnalysis import audioTrainTest as aT
 
-fpr0_total = []
-tpr0_total = []
-fpr1_total = []
-tpr1_total = []
+y_true = []
+y_pred = []
 
 def text_preprocess(document):
     """
@@ -534,22 +532,14 @@ def _count_score(y_true, y_pred, label1=0, label2=1):
 
 # define scoring function
 
-def custom_auc(ground_truth, predictions,pos_label=1):
+def custom_auc(ground_truth, predictions):
      # I need only one column of predictions["0" and "1"]. You can get an error here
      # while trying to return both columns at once
-     fpr, tpr, _ = roc_curve(ground_truth, predictions, pos_label=pos_label)
-     '''
-     if pos_label==0:
-        global fpr0_total
-        global tpr0_total
-        fpr0_total.append(fpr)
-        tpr0_total.append(tpr)
-     else:
-         global fpr1_total
-         global tpr1_total
-         fpr1_total.append(fpr)
-         tpr1_total.append(tpr)
-    '''
+     fpr, tpr, _ = roc_curve(ground_truth, predictions, pos_label=1)
+     global y_true
+     global y_pred
+     y_true += list(ground_truth)
+     y_pred += list(predictions)
      return auc(fpr, tpr)
 
 def print_grid_results(grid, metric, labels_set, num_splits):
@@ -579,17 +569,16 @@ def print_grid_results(grid, metric, labels_set, num_splits):
     print("--> Confusion matrix of the best classifier (sum across all tests):")
     print(confusion)
     auc_total = []
-    for label in labels_set:
-        auc = 0
-        for i in range(num_splits):
-            key1 = 'split%s_test_auc_%s' % (i,label)
-            #summarize all the roc values of all test sets
-            auc += grid.cv_results_[key1][best_index]
-        #take mean auc value over all the test sets
-        auc = auc/num_splits
-        #save auc mean value computed on positive class = current label
-        auc_total.append(auc)
-    return num_test_samples, auc_total, confusion
+
+    auc = 0
+    for i in range(num_splits):
+        key1 = 'split%s_test_auc_1' % (i)
+        #summarize all the roc values of all test sets
+        auc += grid.cv_results_[key1][best_index]
+    #take mean auc value over all the test sets
+    auc = auc/num_splits
+    #save auc mean value computed on positive class = current label
+    return num_test_samples, auc, confusion
 
 
 def train_basic_segment_classifier(feature_matrix, labels,
@@ -665,16 +654,20 @@ def train_basic_segment_classifier(feature_matrix, labels,
 
 def make_graphics(cm,mean_f1):
 
+    global y_true
+    global y_pred
+    auc = roc_auc_score(y_true, y_pred)
+    print("\nAUC COMPUTED FROM CONCATENATED POSTERIORS: {}".format(auc))
     titles = ["Confusion matrix, Mean F1 (macro): {:.1f}%".format(100 * mean_f1),
               "Class-wise Performance measures",
-              "ROC for class 0",
-              "ROC for class 1"]
+              "Pre vs Rec for positive",
+              "ROC for positive, AUC: {}".format(auc)]
     rec_c, pre_c, f1_c = aT.compute_class_rec_pre_f1(cm)
     figs = plotly.subplots.make_subplots(rows=2, cols=2,
                                          subplot_titles=titles)
 
-    heatmap = go.Heatmap(z=np.flip(cm, axis=0), x=cm,
-                         y=[0,1],
+    heatmap = go.Heatmap(z=np.flip(cm, axis=0), x=["negative","positive"],
+                         y=list(reversed(["negative","positive"])),
                          colorscale=[[0, '#4422ff'], [1, '#ff4422']],
                          name="confusion matrix", showscale=False)
     mark_prop1 = dict(color='rgba(80, 220, 150, 0.5)',
@@ -683,45 +676,55 @@ def make_graphics(cm,mean_f1):
                       line=dict(color='rgba(80, 150, 220, 1)', width=2))
     mark_prop3 = dict(color='rgba(250, 150, 150, 0.5)',
                       line=dict(color='rgba(250, 150, 150, 1)', width=3))
-    b1 = go.Bar(x=[0,1], y=rec_c, name="Recall", marker=mark_prop1)
-    b2 = go.Bar(x=[0,1], y=pre_c, name="Precision", marker=mark_prop2)
-    b3 = go.Bar(x=[0,1], y=f1_c, name="F1", marker=mark_prop3)
+    b1 = go.Bar(x=["negative","positive"], y=rec_c, name="Recall", marker=mark_prop1)
+    b2 = go.Bar(x=["negative","positive"], y=pre_c, name="Precision", marker=mark_prop2)
+    b3 = go.Bar(x=["negative","positive"], y=f1_c, name="F1", marker=mark_prop3)
 
     figs.append_trace(heatmap, 1, 1);
     figs.append_trace(b1, 1, 2)
     figs.append_trace(b2, 1, 2);
     figs.append_trace(b3, 1, 2)
 
-    #compute the mean false positive rates and true positive rates over all of 15 test sets (3*5)
-    #for CLASS 0
-    global fpr1_total
-    global tpr1_total
-    final1_fpr = [0] * fpr1_total[0].size()
-    final1_tpr = [0] * tpr1_total[0].size()
-    for (array1,array2) in zip(fpr1_total,tpr1_total):
-        final1_fpr += array1
-        final1_tpr += array2
-    final1_fpr = final1_fpr/30
-    final1_tpr = final1_tpr/30
 
-    # compute the mean false positive rates and true positive rates over all of 15 test sets (3*5)
-    # for CLASS 1
-    global fpr2_total
-    global tpr2_total
-    final2_fpr = [0] * len(fpr2_total[0])
-    final2_tpr = [0] * len(tpr2_total[0])
-    for (array1, array2) in zip(fpr2_total, tpr2_total):
-        final2_fpr += array1
-        final2_tpr += array2
-    final2_fpr = final2_fpr / 30
-    final2_tpr = final2_tpr / 30
-    figs.append_trace(go.Scatter(x=final1_fpr, y=final1_tpr, showlegend=False), 2, 1)
-    figs.append_trace(go.Scatter(x=final2_fpr, y=final2_tpr, showlegend=False), 2, 2)
-    figs.update_xaxes(title_text="false positive rate", row=2, col=1)
-    figs.update_yaxes(title_text="true positive rate", row=2, col=1)
+    pre, rec, thr_prre = precision_recall_curve(y_true,y_pred)
+    fpr, tpr, thr_roc = roc_curve(y_true, y_pred)
+    figs.append_trace(go.Scatter(x=thr_prre, y=pre, name="Precision",
+                                     marker=mark_prop1), 2, 1)
+    figs.append_trace(go.Scatter(x=thr_prre, y=rec, name="Recall",
+                                 marker=mark_prop2), 2, 1)
+    figs.append_trace(go.Scatter(x=fpr, y=tpr, showlegend=False), 2, 2)
+    figs.update_xaxes(title_text="threshold", row=2, col=1)
     figs.update_xaxes(title_text="false positive rate", row=2, col=2)
     figs.update_yaxes(title_text="true positive rate", row=2, col=2)
+
     plotly.offline.plot(figs, filename="figs.html", auto_open=True)
+
+def get_f1_score(confusion_matrix, i):
+    TP = 0
+    FP = 0
+    TN = 0
+    FN = 0
+
+    for j in range(len(confusion_matrix)):
+        if (i == j):
+            TP += confusion_matrix[i, j]
+            tmp = np.delete(confusion_matrix, i, 0)
+            tmp = np.delete(tmp, j, 1)
+
+            TN += np.sum(tmp)
+        else:
+            if (confusion_matrix[i, j] != 0):
+
+                FN += confusion_matrix[i, j]
+            if (confusion_matrix[j, i] != 0):
+
+                FP += confusion_matrix[j, i]
+
+    recall = TP / (FN + TP)
+    precision = TP / (TP + FP)
+    f1_score = 2 * 1/(1/recall + 1/precision)
+
+    return f1_score
 
 def repeated_grouped_KFold(feature_matrix, labels, grid_clf, config, groups):
 
@@ -732,36 +735,32 @@ def repeated_grouped_KFold(feature_matrix, labels, grid_clf, config, groups):
     clf_scores = []
 
     num_test_samples = []
-
+    auc = 0
     for idx in range(10):
         print("--> {} of {} 5-Fold Cross Val:".format(idx + 1, 10))
         grid_clf.fit(feature_matrix, labels, groups=groups)
         clf_score = grid_clf.best_score_
         clf_scores.append(clf_score)
 
+        '''
         # print the group ids of the samples for every train and test split, in order to
         # check if test set incorporates ids that do not appear in train set
         for train, test in grid_clf.cv.split(feature_matrix, labels, groups=groups):
             print('TRAIN: ', train, ' TEST: ', test)
             print([groups[t] for t in train])
             print([groups[t] for t in test])
-
+        '''
         num_splits = 5
         num, auc_total, confusion =  print_grid_results(grid_clf, config['metric'], labels_set, num_splits)
+        auc += auc_total
         if idx == 0:
             cm_total = confusion.to_numpy()
-            auc = auc_total
         else:
             #summarize all cm over the three gridsearches
             cm_total += confusion.to_numpy()
-            #summarize all the auc values(for both positive class cases) over the three gridsearches
-            auc = [x + y for x, y in zip(auc, auc_total)]
         num_test_samples.append(num)
     #take mean auc across three gridsearches
-    auc = [item/10 for item in auc]
-
-    #take the mean cm of all of the gridsearches
-    cm_total = cm_total/cm_total.sum()
+    auc = auc/10
 
     #calculate the mean f1 score across all tests of all gridsearches
     test_samples = 0
@@ -771,13 +770,17 @@ def repeated_grouped_KFold(feature_matrix, labels, grid_clf, config, groups):
         test_true += score * length
 
     test_score = test_true / test_samples
-    print("\nMEAN F1 MACRO ACROSS ALL TESTS OF ALL GRIDSEARCHES: {}".format(test_score))
-
-    #print the mean auc value for every positive class
-    for count,i in enumerate(auc):
-        print("\nMEAN AUC FOR CLASS {} ACROSS ALL TESTS OF ALL GRIDSEARCHES: {}".format(count,i))
+    print("\nMEAN WEIGHTED F1 MACRO ACROSS ALL TESTS OF ALL GRIDSEARCHES: {}".format(test_score))
+    f1_0 = get_f1_score(cm_total,0)
+    f1_1 = get_f1_score(cm_total,1)
+    mean_f1_from_cm = (f1_0 + f1_1)/2
+    print("\nAGGREGATED CONFUSION MATRIX:")
+    print(cm_total)
+    print("\nMEAN F1 FROM AGGREGATED CONFUSION MATRIX: {}".format(mean_f1_from_cm))
+    #print the mean auc value for positive class
+    print("\nMEAN AUC FOR CLASS 1 ACROSS ALL TESTS OF ALL GRIDSEARCHES: {}".format(auc))
     #make graphics of confusion matrix, class-wise performance measures and roc curves for every positive class
-    #make_graphics(cm_total,test_score)
+    make_graphics(cm_total,mean_f1_from_cm)
     return grid_clf
 
 
@@ -810,9 +813,9 @@ def train_recording_level_classifier(feature_matrix, labels,
                                       label2=label2)
             scorer['count_%s_%s' % (label1, label2)] = count_score
 
-    for label in labels_set:
-        auc = make_scorer(custom_auc,pos_label=label,greater_is_better=True, needs_proba=True)
-        scorer['auc_%s' % label] = auc
+
+    auc = make_scorer(custom_auc,greater_is_better=True, needs_proba=True)
+    scorer['auc_1'] = auc
 
     scorer[config['metric']] = metric
 
