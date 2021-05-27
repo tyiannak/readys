@@ -12,7 +12,7 @@ from collections import defaultdict
 from sklearn.metrics import make_scorer
 from sklearn.metrics import f1_score
 from sklearn.metrics import accuracy_score, precision_recall_curve, roc_curve, auc, roc_auc_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_validate
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.model_selection import GridSearchCV
@@ -526,7 +526,7 @@ def grid_init(clf, clf_name, parameters_dict,
 
     grid_clf = GridSearchCV(
         pipe, parameters_dict, cv=cv,
-        scoring=scoring, refit=refit, n_jobs=1)
+        scoring=scoring, refit=refit, n_jobs=-1)
 
     return grid_clf
 
@@ -562,13 +562,12 @@ def print_grid_results(grid, metric, labels_set, num_splits):
     clf_params = grid.best_params_
     clf_score = grid.best_score_
     clf_stdev = grid.cv_results_['std_test_{}'.format(metric)][grid.best_index_]
-    print("--> Parameters of best svm model: {}".format(clf_params))
+    print("--> Parameters of best model: {}".format(clf_params))
     print("--> Best validation score:      {:0.5f} (+/-{:0.5f})".format(
         clf_score, clf_stdev))
 
     best_index = grid.best_index_
     confusion = defaultdict(lambda: defaultdict(int))
-    num_test_samples = 0
     for label1 in labels_set:
         for label2 in labels_set:
             for i in range(num_splits):
@@ -576,14 +575,12 @@ def print_grid_results(grid, metric, labels_set, num_splits):
                 val = int(grid.cv_results_[key][best_index])
                 confusion[label1][label2] += val
                 #calculate the number of all the test samples across the test folds
-                num_test_samples += val
     confusion = {key: dict(value) for key, value in confusion.items()}
 
     confusion = pd.DataFrame.from_dict(confusion,orient='index')
 
     print("--> Confusion matrix of the best classifier (sum across all tests):")
     print(confusion)
-    auc_total = []
 
     auc = 0
     for i in range(num_splits):
@@ -592,83 +589,38 @@ def print_grid_results(grid, metric, labels_set, num_splits):
         auc += grid.cv_results_[key1][best_index]
     #take mean auc value over all the test sets
     auc = auc/num_splits
-    #save auc mean value computed on positive class = current label
-    return num_test_samples, auc, confusion
+    print("\nMEAN AUC FOR CLASS 1 ACROSS ALL TESTS OF ALL GRIDSEARCHES: {}".format(auc))
+    # make graphics of confusion matrix, class-wise performance measures and roc curves for every positive class
 
+    return auc, confusion
 
-def train_basic_segment_classifier(feature_matrix, labels,
-                                   is_imbalanced, config, seed=None):
-    """
-    Trains basic (i.e. svm or xgboost) classifier pipeline
-    :param feature_matrix: feature matrix
-    :param labels: list of labels
-    :param is_imbalanced: True if the dataset is imbalanced, False otherwise
-    :param config: configuration file
-    :param seed: seed
-    :return: the trained pipeline
-    """
+def print_cross_val_results(scores, metric, labels_set, num_splits):
 
-    n_components = [0.98, 0.99, 'mle', None]
-
-    if config['metric'] == 'f1_macro':
-        metric = make_scorer(f1_macro)
-    elif config['metric'] == 'f1_micro':
-        metric = make_scorer(f1_micro)
-    elif config['metric'] == 'accuracy':
-        metric = make_scorer(accuracy_score)
-    else:
-        print('Only supported evaluation metrics are: f1_macro, f1_micro, accuracy')
-        return -1
-
-    labels_set = sorted(set(labels))
-    scorer = {}
+    confusion = defaultdict(lambda: defaultdict(int))
+    num_test_samples = [0] * num_splits
     for label1 in labels_set:
         for label2 in labels_set:
-            count_score = make_scorer(_count_score, label1=label1,
-                                      label2=label2)
-            scorer['count_%s_%s' % (label1, label2)] = count_score
+            array_of_counts = scores['test_count_%s_%s' % (label1, label2)]
+            for i in range(num_splits):
+                list_of_counts = list(array_of_counts)
+                val = int(list_of_counts[i])
+                confusion[label1][label2] += val
+                # calculate the number of all the test samples across the test folds
+                num_test_samples[i] += val
+    confusion = {key: dict(value) for key, value in confusion.items()}
 
-    scorer[config['metric']] = metric
-    for label in labels_set:
-        fpr, tpr = make_scorer(custom_auc,pos_label=label, needs_proba=True)
-        scorer['roc_fpr_%s' % label] = fpr
-        scorer['roc_tpr_%s' % label] = tpr
-    if config['svm']:
-        clf = svm.SVC(kernel=config['svm_parameters']['kernel'], probability=True,
-                      class_weight='balanced')
-        svm_parameters = {'gamma': ['auto', 'scale'],
-                          'C': [0.001, 0.01,  0.5, 1.0, 5.0, 10.0, 20.0]}
+    confusion = pd.DataFrame.from_dict(confusion, orient='index')
 
-        parameters_dict = dict(pca__n_components=n_components,
-                               SVM__gamma=svm_parameters['gamma'],
-                               SVM__C=svm_parameters['C'])
-
-        grid_clf = grid_init(clf, "SVM", parameters_dict,
-                             is_imbalanced, scoring=scorer,
-                             refit=config['metric'], seed=seed)
-        print("--> Training SVM classifier using GridSearchCV")
-
-    elif config['xgboost']:
-        xgb = XGBClassifier(n_estimators=100)
-        parameters_dict = dict(pca__n_components=n_components)
-        grid_clf = grid_init(xgb, "XGBOOST", parameters_dict,
-                             is_imbalanced, scoring=scorer,
-                             refit=config['metric'], seed=seed)
-        print("--> Training XGBOOST classifier using GridSearchCV")
-
-    else:
-        print("The only supported basic classifiers are SVM and XGBOOST")
-        return -1
-
-    grid_clf.fit(feature_matrix, labels)
-
-    clf_svc = grid_clf.best_estimator_
-
-    num_splits = 5 * 3
-    _,_,_ = print_grid_results(grid_clf, config['metric'], labels_set,num_splits)
-    clf_svc.fit(feature_matrix, labels)
-    return clf_svc
-
+    list_of_f1 = list(scores['test_{}'.format(metric)])
+    weighted_f1 = [f*num for f,num in zip(list_of_f1,num_test_samples)]
+    mean_f1 = sum(weighted_f1)/sum(num_test_samples)
+    print("--> Weighted Mean f1 score across all test sets:      {:0.5f}".format(mean_f1))
+    list_of_aucs = list(scores['test_auc_1'])
+    # summarize all the roc values of all test sets
+    auc = sum(list_of_aucs)
+    # take mean auc value over all the test sets
+    auc = auc / num_splits
+    return auc, confusion
 
 def make_graphics(cm, mean_f1):
 
@@ -717,7 +669,6 @@ def make_graphics(cm, mean_f1):
 
     plotly.offline.plot(figs, filename="figs.html", auto_open=True)
 
-
 def get_f1_score(confusion_matrix, i):
     TP = 0
     FP = 0
@@ -745,6 +696,77 @@ def get_f1_score(confusion_matrix, i):
 
     return f1_score
 
+def train_basic_segment_classifier(feature_matrix, labels,
+                                   is_imbalanced, config, seed=None):
+    """
+    Trains basic (i.e. svm or xgboost) classifier pipeline
+    :param feature_matrix: feature matrix
+    :param labels: list of labels
+    :param is_imbalanced: True if the dataset is imbalanced, False otherwise
+    :param config: configuration file
+    :param seed: seed
+    :return: the trained pipeline
+    """
+
+    n_components = [0.98, 0.99, 'mle', None]
+
+    if config['metric'] == 'f1_macro':
+        metric = make_scorer(f1_macro)
+    elif config['metric'] == 'f1_micro':
+        metric = make_scorer(f1_micro)
+    elif config['metric'] == 'accuracy':
+        metric = make_scorer(accuracy_score)
+    else:
+        print('Only supported evaluation metrics are: f1_macro, f1_micro, accuracy')
+        return -1
+
+    labels_set = sorted(set(labels))
+    scorer = {}
+    for label1 in labels_set:
+        for label2 in labels_set:
+            count_score = make_scorer(_count_score, label1=label1,
+                                      label2=label2)
+            scorer['count_%s_%s' % (label1, label2)] = count_score
+
+    scorer[config['metric']] = metric
+    auc = make_scorer(custom_auc, greater_is_better=True, needs_proba=True)
+    scorer['auc_1'] = auc
+    if config['svm']:
+        clf = svm.SVC(kernel=config['svm_parameters']['kernel'], probability=True,
+                      class_weight='balanced')
+        svm_parameters = {'gamma': ['auto', 'scale'],
+                          'C': [0.001, 0.01,  0.5, 1.0, 5.0, 10.0, 20.0]}
+
+        parameters_dict = dict(pca__n_components=n_components,
+                               SVM__gamma=svm_parameters['gamma'],
+                               SVM__C=svm_parameters['C'])
+
+        grid_clf = grid_init(clf, "SVM", parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
+        print("--> Training SVM classifier using GridSearchCV")
+
+    elif config['xgboost']:
+        xgb = XGBClassifier(n_estimators=100)
+        parameters_dict = dict(pca__n_components=n_components)
+        grid_clf = grid_init(xgb, "XGBOOST", parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed)
+        print("--> Training XGBOOST classifier using GridSearchCV")
+
+    else:
+        print("The only supported basic classifiers are SVM and XGBOOST")
+        return -1
+
+    grid_clf.fit(feature_matrix, labels)
+
+    clf_svc = grid_clf.best_estimator_
+
+    num_splits = 5 * 3
+    _, _ = print_grid_results(grid_clf, config['metric'], labels_set,num_splits)
+
+    return clf_svc
+
 
 def train_recording_level_classifier(feature_matrix, labels,
                                      is_imbalanced, config, filenames, seed=None):
@@ -769,36 +791,22 @@ def train_recording_level_classifier(feature_matrix, labels,
         print('Only supported evaluation metrics are: f1_macro, f1_micro, accuracy')
         return -1
 
-    labels_set = sorted(set(labels))
-    scorer = {}
-    for label1 in labels_set:
-        for label2 in labels_set:
-            count_score = make_scorer(_count_score, label1=label1,
-                                      label2=label2)
-            scorer['count_%s_%s' % (label1, label2)] = count_score
-
-
-    auc = make_scorer(custom_auc,greater_is_better=True, needs_proba=True)
-    scorer['auc_1'] = auc
-
-    scorer[config['metric']] = metric
-
-    n_components = [0.99]
+    n_components = [0.98, 0.99, 'mle', None]
 
     group_splits = config["num_splits"]
 
     if config['classifier_type'] == 'svm_rbf':
         clf = svm.SVC(kernel='rbf', probability=True,
                       class_weight='balanced')
-        svm_parameters = {'gamma': ['auto'],
-                          'C': [1]}
+        svm_parameters = {'gamma': ['auto', 'scale'],
+                          'C': [0.001, 0.01,  0.5, 1.0, 5.0, 10.0, 20.0]}
 
         parameters_dict = dict(pca__n_components=n_components,
                                SVM_RBF__gamma=svm_parameters['gamma'],
                                SVM_RBF__C=svm_parameters['C'])
 
         grid_clf = grid_init(clf, "SVM_RBF", parameters_dict,
-                             is_imbalanced, scoring=scorer,
+                             is_imbalanced, scoring=metric,
                              refit=config['metric'], seed=seed, group_splits=group_splits)
         print("--> Training SVM rbf classifier using GridSearchCV")
     elif config['classifier_type'] == 'svm':
@@ -811,7 +819,7 @@ def train_recording_level_classifier(feature_matrix, labels,
                                SVM__C=svm_parameters['C'])
 
         grid_clf = grid_init(clf, "SVM", parameters_dict,
-                             is_imbalanced, scoring=scorer,
+                             is_imbalanced, scoring=metric,
                              refit=config['metric'], seed=seed, group_splits=group_splits)
         print("--> Training SVM classifier using GridSearchCV")
     elif config['classifier_type'] == 'randomforest':
@@ -823,7 +831,7 @@ def train_recording_level_classifier(feature_matrix, labels,
                                classifier_parameters['n_estimators'])
 
         grid_clf = grid_init(clf, "RandomForest", parameters_dict,
-                             is_imbalanced, scoring=scorer,
+                             is_imbalanced, scoring=metric,
                              refit=config['metric'], seed=seed, group_splits=group_splits)
         print("--> Training Random Forest classifier using GridSearchCV")
     elif config['classifier_type'] == 'knn':
@@ -832,7 +840,7 @@ def train_recording_level_classifier(feature_matrix, labels,
         parameters_dict = dict(pca__n_components=n_components,
                                Knn__n_neighbors=classifier_parameters['n_neighbors'])
         grid_clf = grid_init(clf, "Knn", parameters_dict,
-                             is_imbalanced, scoring=scorer,
+                             is_imbalanced, scoring=metric,
                              refit=config['metric'], seed=seed, group_splits=group_splits)
         print("--> Training Knn classifier using GridSearchCV")
     elif config['classifier_type'] == 'gradientboosting':
@@ -843,7 +851,7 @@ def train_recording_level_classifier(feature_matrix, labels,
                                GradientBoosting__n_estimators=classifier_parameters['n_estimators'])
 
         grid_clf = grid_init(clf, "GradientBoosting", parameters_dict,
-                             is_imbalanced, scoring=scorer,
+                             is_imbalanced, scoring=metric,
                              refit=config['metric'], seed=seed, group_splits=group_splits)
         print("--> Training Gradient Boosting classifier using GridSearchCV")
     elif config['classifier_type'] == 'extratrees':
@@ -854,30 +862,50 @@ def train_recording_level_classifier(feature_matrix, labels,
                                Extratrees__n_estimators=classifier_parameters['n_estimators'])
 
         grid_clf = grid_init(clf, "Extratrees", parameters_dict,
-                             is_imbalanced, scoring=scorer,
+                             is_imbalanced, scoring=metric,
                              refit=config['metric'], seed=seed, group_splits=group_splits)
         print("--> Training Extra Trees classifier using GridSearchCV")
 
 
 
     groups = make_group_list(filenames)
-    grid_clf.fit(feature_matrix, labels, groups=groups)
 
-    num_splits = config['num_splits']
-    num, auc_total, cm = print_grid_results(grid_clf, config['metric'], labels_set, num_splits)
+    #use gridsearch to find best parameters
+    grid_clf.fit(feature_matrix, labels, groups=groups)
+    clf_svc = grid_clf.best_estimator_
+
+    #use best parameters to cross validate again and make figures/compute scores
+    labels_set = sorted(set(labels))
+    scorer = {}
+    scorer[config['metric']] = metric
+    for label1 in labels_set:
+        for label2 in labels_set:
+            count_score = make_scorer(_count_score, label1=label1,
+                                      label2=label2)
+            scorer['count_%s_%s' % (label1, label2)] = count_score
+
+    auc = make_scorer(custom_auc, greater_is_better=True, needs_proba=True)
+    scorer['auc_1'] = auc
+
+    best_params = grid_clf.best_params_
+    print("--> Parameters of best model: {}".format(best_params))
+
+    cv = GroupShuffleSplit(test_size=0.2, n_splits=group_splits)
+    scores = cross_validate(clf_svc,feature_matrix,y=labels,groups=groups,scoring=scorer,cv=cv)
+
+
+    auc_total, cm = print_cross_val_results(scores, config['metric'], labels_set, group_splits)
+    print("\nAGGREGATED CONFUSION MATRIX:")
+    print(cm)
     cm = cm.to_numpy()
     f1_0 = get_f1_score(cm, 0)
     f1_1 = get_f1_score(cm, 1)
     mean_f1_from_cm = (f1_0 + f1_1) / 2
-    print("\nAGGREGATED CONFUSION MATRIX:")
-    print(cm)
+    
     print("\nMEAN F1 FROM AGGREGATED CONFUSION MATRIX: {}".format(mean_f1_from_cm))
     # print the mean auc value for positive class
-    print("\nMEAN AUC FOR CLASS 1 ACROSS ALL TESTS OF ALL GRIDSEARCHES: {}".format(auc))
+    print("\nMEAN AUC FOR CLASS 1 ACROSS ALL TESTS OF ALL GRIDSEARCHES: {}".format(auc_total))
     # make graphics of confusion matrix, class-wise performance measures and roc curves for every positive class
+
     make_graphics(cm, mean_f1_from_cm)
-
-    clf_svc = grid_clf.best_estimator_
-    clf_svc.fit(feature_matrix, labels)
-
     return clf_svc
