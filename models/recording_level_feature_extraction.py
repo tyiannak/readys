@@ -28,6 +28,10 @@ class RecordingLevelFeatureExtraction(object):
             basic feature extraction parameters
             :param basic_features_params: basic feature extraction parameters
         """
+        if basic_features_params["gender"] == "male" or basic_features_params["gender"] == "female":
+            self.gender = basic_features_params["gender"]
+        else:
+            self.gender = None
         self.basic_features_params = basic_features_params
 
     def fit(self):
@@ -62,8 +66,22 @@ class RecordingLevelFeatureExtraction(object):
                 count = 0
                 if reference_text:
                     for f in glob.iglob(os.path.join(folder, '*.txt')):
+                        if self.gender is not None:
+                            if "female" not in f:
+                                if self.gender == "female":
+                                    continue
+                            elif self.gender == "male":
+                                continue
+
                         textnames.append(f)
                 for f in glob.iglob(os.path.join(folder, '*.wav')):
+                    if self.gender is not None:
+                        if "female" not in f:
+                            if self.gender == "female":
+                                continue
+                        elif self.gender == "male":
+                            continue
+
                     filenames.append(f)
                     count += 1
                     labels.append(os.path.split(folder)[1])
@@ -80,7 +98,7 @@ class RecordingLevelFeatureExtraction(object):
         # Match filenames with labels
         print("class names",class_names)
         features, feature_names = \
-            self.extract_recording_level_features(filenames,textnames)
+            self.extract_recording_level_features(filenames, textnames)
         feature_list = []
         index = 0
         for num_of_samples in num_of_samples_per_class:
@@ -94,7 +112,7 @@ class RecordingLevelFeatureExtraction(object):
 
         return features, labels, idx2folder, feature_list, feature_names, class_names, filenames
 
-    def extract_recording_level_features(self, filenames,textnames):
+    def extract_recording_level_features(self, filenames, textnames):
         """
         Extract unique overall files' features
 
@@ -131,6 +149,12 @@ class RecordingLevelFeatureExtraction(object):
             classifiers_attributes = load_classifiers(text_models_directory)
 
         for count, file in enumerate(filenames):
+            if self.gender is not None:
+                if "female" not in file:
+                    if self.gender == "female":
+                        continue
+                elif self.gender == "male":
+                    continue
             if textnames == []:
                 reference_text = None
             else:

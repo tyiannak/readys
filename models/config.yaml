@@ -24,8 +24,9 @@ audio_classifier:
   out_folder: "output_models/audio/"
 
 recording_level_classifier:
+  gender: None
   features_type: 'audio'
-  audio_features: 'readys'
+  audio_features: 'fused'
   pyaudio_params: {
     'mid_window': 3,
     'mid_step': 3,
