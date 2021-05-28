@@ -596,6 +596,7 @@ def best_clf(grid, labels_set, num_splits, num_models, is_imbalanced, seed=None)
 
     print("\n--> F1 scores from GridSearch:\n {}".format(f1_scores))
     f1_scores = np.array(f1_scores)
+    f1_scores = np.nan_to_num(f1_scores)
     best_idx = np.argmax(f1_scores)
     best_score = np.max(f1_scores)
     print("\n--> F1 score of the best classifier (measured on aggregated cm): {}".format(best_score))

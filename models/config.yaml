@@ -24,10 +24,10 @@ audio_classifier:
   out_folder: "output_models/audio/"
 
 recording_level_classifier:
-  pyaudio_num_features: 8
-  gender: 'female'
+  pyaudio_num_features: 'all'
+  gender: 'male'
   features_type: 'audio'
-  audio_features: 'pyaudio'
+  audio_features: 'fused'
   pyaudio_params: {
     'mid_window': 3,
     'mid_step': 3,
