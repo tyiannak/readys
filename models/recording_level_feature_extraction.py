@@ -160,16 +160,17 @@ class RecordingLevelFeatureExtraction(object):
             else:
                 reference_text = textnames[count]
             if features_type == "fused":
-
+                pyaudio_num_features = self.basic_features_params['pyaudio_num_features']
                 if self.basic_features_params['audio_features'] == "fused":
+
                     audio_features, audio_features_names, _ = \
                         audio_based_feature_extraction(
-                            file, audio_models_directory, mode=1,
+                            file, audio_models_directory,pyaudio_num_features=pyaudio_num_features, mode=1,
                             pyaudio_params=self.basic_features_params['pyaudio_params'])
                 elif self.basic_features_params['audio_features'] == "pyaudio":
                     audio_features, audio_features_names, _ = \
                         audio_based_feature_extraction(
-                            file, audio_models_directory, mode=2,
+                            file, audio_models_directory,pyaudio_num_features=pyaudio_num_features, mode=2,
                             pyaudio_params=self.basic_features_params['pyaudio_params'])
                 else:
                     audio_features, audio_features_names, _ = \
@@ -183,15 +184,16 @@ class RecordingLevelFeatureExtraction(object):
                 file_recording_level_features = audio_features + text_features
                 file_features_names = audio_features_names + text_features_names
             elif features_type == "audio":
+                pyaudio_num_features = self.basic_features_params['pyaudio_num_features']
                 if self.basic_features_params['audio_features'] == "fused":
                     audio_features, file_features_names, _ = \
                         audio_based_feature_extraction(
-                            file, audio_models_directory, mode=1,
+                            file, audio_models_directory,pyaudio_num_features=pyaudio_num_features, mode=1,
                             pyaudio_params=self.basic_features_params['pyaudio_params'])
                 elif self.basic_features_params['audio_features'] == "pyaudio":
                     audio_features, file_features_names, _ = \
                         audio_based_feature_extraction(
-                            file, audio_models_directory, mode=2,
+                            file, audio_models_directory,pyaudio_num_features=pyaudio_num_features, mode=2,
                             pyaudio_params=self.basic_features_params['pyaudio_params'])
                 else:
                     audio_features, file_features_names, _ = \

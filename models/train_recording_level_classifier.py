@@ -34,8 +34,7 @@ def recording_level_classifier(inputs_path,model_name):
     feature_extractor = RecordingLevelFeatureExtraction(basic_features_params)
     features, labels, class_mapping, feature_list, feature_names, class_names, filenames = feature_extractor.transform(inputs_path)
 
-
-
+    plot_feature_histograms(feature_list, feature_names, class_names)
     is_imbalanced = check_balance(labels)
 
     clf = train_recording_level_classifier(features, labels, is_imbalanced, config, filenames, seed)
@@ -48,12 +47,14 @@ def recording_level_classifier(inputs_path,model_name):
     model_dict['text_segmentation_params'] = config['text_segmentation_params']
     model_dict['audio_features'] = config['audio_features']
     model_dict['pyaudio_params'] = config['pyaudio_params']
+    model_dict['pyaudio_num_features'] = config['pyaudio_num_features']
+    model_dict['gender'] = config['gender']
     out_folder = config['out_folder']
     if model_name is None:
         save_model(model_dict,out_folder, name="basic_classifier")
     else:
         save_model(model_dict,out_folder, out_model=model_name)
-    plot_feature_histograms(feature_list, feature_names, class_names)
+
     return None
 
 if __name__ == '__main__':

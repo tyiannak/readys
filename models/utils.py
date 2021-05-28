@@ -963,7 +963,6 @@ def train_recording_level_classifier(feature_matrix, labels,
         grid_clf, labels_set, num_splits,
         num_combos, is_imbalanced, seed)
 
-
     #use best parameters to cross validate again and make figures/compute scores
 
     scorer = {}
@@ -991,8 +990,9 @@ def train_recording_level_classifier(feature_matrix, labels,
     mean_f1_from_cm = (f1_0 + f1_1) / 2
     
     # print the mean auc value for positive class
-    print("\n --> MEAN AUC FOR CLASS 1 ACROSS ALL TESTS OF ALL GRIDSEARCHES: {}".format(auc_total))
+    print("\n--> MEAN AUC FOR CLASS 1 ACROSS ALL TESTS OF ALL GRIDSEARCHES: {}".format(auc_total))
     # make graphics of confusion matrix, class-wise performance measures and roc curves for every positive class
 
     make_graphics(cm, mean_f1_from_cm)
+    clf_svc.fit(feature_matrix, y=labels)
     return clf_svc

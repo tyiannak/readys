@@ -48,6 +48,8 @@ def predict_recording_level_label(audio_file, model_path):
         model_dict['text_segmentation_params']
     basic_features_params['audio_features'] = model_dict['audio_features']
     basic_features_params['pyaudio_params'] = model_dict['pyaudio_params']
+    basic_features_params['pyaudio_num_features'] = model_dict['pyaudio_num_features']
+    basic_features_params['gender'] = model_dict['gender']
     #feature_extraction
     feature_extractor = RecordingLevelFeatureExtraction(basic_features_params)
     if basic_features_params['reference_text']:
