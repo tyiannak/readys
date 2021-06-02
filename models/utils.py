@@ -20,9 +20,12 @@ from sklearn.model_selection import RepeatedStratifiedKFold, StratifiedShuffleSp
 from sklearn import preprocessing
 from sklearn import svm
 from xgboost import XGBClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import GaussianNB
 from imblearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 from imblearn.combine import SMOTETomek
+from imblearn.over_sampling import SMOTE
 from sklearn.ensemble import RandomForestClassifier,\
     GradientBoostingClassifier,ExtraTreesClassifier
 from sklearn.neighbors import KNeighborsClassifier
@@ -504,7 +507,8 @@ def grid_init(clf, clf_name, parameters_dict,
     if is_imbalanced:
         print('--> The dataset is imbalanced. SMOTETomek will'
               ' be applied to balance the classes')
-        sampler = SMOTETomek(random_state=seed)
+        #sampler = SMOTETomek(random_state=seed)
+        sampler = SMOTE(random_state=seed)
 
     scaler = StandardScaler()
 
@@ -529,7 +533,7 @@ def grid_init(clf, clf_name, parameters_dict,
 
     grid_clf = GridSearchCV(
         pipe, parameters_dict, cv=cv,
-        scoring=scoring, refit=refit, n_jobs=1, verbose=2)
+        scoring=scoring, refit=refit, n_jobs=-1, verbose=2)
 
     return grid_clf
 
@@ -571,7 +575,7 @@ def num_group_splits(groups):
     return logo.get_n_splits(groups=groups)
 
 
-def best_clf(grid, labels_set, num_splits, num_models, is_imbalanced, seed=None):
+def best_clf(classifier_name,grid, labels_set, num_splits, num_models, is_imbalanced, seed=None):
 
     f1_scores = []
 
@@ -613,10 +617,17 @@ def best_clf(grid, labels_set, num_splits, num_models, is_imbalanced, seed=None)
     thresholder = VarianceThreshold(threshold=0)
 
     pca = PCA(n_components=best_params["pca__n_components"])
-    clf =  svm.SVC(
-        kernel="rbf", gamma=best_params["SVM_RBF__gamma"],
-        C=best_params["SVM_RBF__C"], probability=True,
-        class_weight='balanced')
+    if classifier_name == 'svm_rbf':
+        clf =  svm.SVC(
+            kernel="rbf", gamma=best_params["SVM_RBF__gamma"],
+            C=best_params["SVM_RBF__C"], probability=True,
+            class_weight='balanced')
+    elif classifier_name == 'NaiveBayes':
+        clf = GaussianNB(priors=best_params['gaussiannb__priors'],var_smoothing=best_params['gaussiannb__var_smoothing'])
+    elif classifier_name == 'lr':
+        clf = LogisticRegression(C=best_params['lr__C'],penalty=best_params['lr__penalty'],solver=best_params['lr__solver'])
+    elif classifier_name == 'knn':
+        clf = KNeighborsClassifier(n_neighbors=best_params['Knn__n_neighbors'])
     if is_imbalanced:
         pipe = Pipeline(steps=[
             ('sampling', sampler), ('scaler', scaler),
@@ -878,7 +889,7 @@ def train_recording_level_classifier(feature_matrix, labels,
 
     scorer[config['metric']] = metric
 
-    n_components = [0.98, 0.99, None]
+    n_components = [0.98, 0.99, 'mle', None]
 
 
     if config['classifier_type'] == 'svm_rbf':
@@ -922,7 +933,8 @@ def train_recording_level_classifier(feature_matrix, labels,
         print("--> Training Random Forest classifier using GridSearchCV")
     elif config['classifier_type'] == 'knn':
         clf = KNeighborsClassifier()
-        classifier_parameters = {'n_neighbors': [1, 3, 5, 7, 9, 11, 13, 15]}
+        classifier_parameters = {'n_neighbors': [1]}
+        #3, 5, 7, 9, 11, 13, 15
         parameters_dict = dict(pca__n_components=n_components,
                                Knn__n_neighbors=classifier_parameters['n_neighbors'])
         grid_clf = grid_init(clf, "Knn", parameters_dict,
@@ -951,7 +963,29 @@ def train_recording_level_classifier(feature_matrix, labels,
                              is_imbalanced, scoring=scorer,
                              refit=config['metric'], seed=seed, group=True)
         print("--> Training Extra Trees classifier using GridSearchCV")
-
+    elif config['classifier_type'] == 'NaiveBayes':
+        clf = GaussianNB()
+        classifier_parameters = {'priors': [None],'var_smoothing': np.logspace(0,-9, num=100)}
+        parameters_dict = dict(pca__n_components=n_components,
+                               gaussiannb__priors=classifier_parameters['priors'],
+                               gaussiannb__var_smoothing=classifier_parameters['var_smoothing'])
+        grid_clf = grid_init(clf, "gaussiannb", parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed, group=True)
+        print("--> Training GaussianNB classifier using GridSearchCV")
+    elif config['classifier_type'] == 'lr':
+        clf = LogisticRegression()
+        classifier_parameters = {'penalty' : ['l1', 'l2'],
+                                 'C' : np.logspace(-4, 4, 20),
+                                 'solver' : ['liblinear']}
+        parameters_dict = dict(pca__n_components=n_components,
+                               lr__penalty=classifier_parameters['penalty'],
+                               lr__C=classifier_parameters['C'],
+                               lr__solver=classifier_parameters['solver'])
+        grid_clf = grid_init(clf, "lr", parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed, group=True)
+        print("--> Training Logistic Regression classifier using GridSearchCV")
     labels_set = sorted(set(labels))
 
     groups = make_group_list(filenames)
@@ -960,7 +994,7 @@ def train_recording_level_classifier(feature_matrix, labels,
     grid_clf.fit(feature_matrix, labels, groups=groups)
     num_combos = grid_combinations(parameters_dict)
     num_splits = num_group_splits(groups)
-    clf_svc = best_clf(
+    clf_svc = best_clf(config['classifier_type'],
         grid_clf, labels_set, num_splits,
         num_combos, is_imbalanced, seed)
 
