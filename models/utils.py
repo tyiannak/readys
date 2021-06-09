@@ -423,7 +423,8 @@ def plot_feature_histograms(list_of_feature_mtr, feature_names,
             unique_value = True
             value = f.min()
         else:
-            bins = np.arange(f.min(), f.max(), (f.max() - f.min()) / n_bins)
+            bins = np.arange(f.min(), f.max() + (f.max() - f.min()) / n_bins,
+                             (f.max() - f.min()) / n_bins)
         for fi, f in enumerate(list_of_feature_mtr):
             # load the color for the current class (fi)
             mark_prop = dict(color=clr[fi], line=dict(color=clr[fi], width=3))
