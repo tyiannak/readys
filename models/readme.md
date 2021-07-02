@@ -118,7 +118,7 @@ python3 train_recording_level_classifier.py -i speeches -mn speeches
 where the `-i` argument is the path to the folder that contains the folders 
 (one folder for each class, each one containing the respective recordings - 
 examples of each class). The model in the above example will be saved in 
-`output_models/recording_level/speeches.pt`. 
+`output_models/recording_level/speeches.pt` or in case of late fusion two models will be saved: `output_models/recording_level/speeches_pyaudio.pt`, `output_models/recording_level/speeches_readys.pt`. 
 
 
 ## 2.2 Testing
@@ -133,4 +133,4 @@ https://drive.google.com/drive/folders/1vuW93WZgb84Nt4iSjnuRTrEUfOUns4iV
 Test recording-level:
 1. Open the config file and define the google_credentials path and audio,
 text models paths as before. 
-2. Run `test_recording_level.py` e.g. `python3 test_recording_level.py -i test.wav -m output_models/recording_level/speeches.pt `
+2. Run `test_recording_level.py` e.g. `python3 test_recording_level.py -i test.wav -m output_models/recording_level/speeches.pt ` or in case of late fusion run: `python3 test_recording_level.py -i test.wav -m output_models/recording_level/speeches_readys.pt  -m2 output_models/recording_level/speeches_pyaudio.pt `
