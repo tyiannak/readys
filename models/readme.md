@@ -89,12 +89,17 @@ To train:
 
 1. Edit `config.yaml` and go under the `recording_level_classifier` field to 
    set `classifier_type` (svm, svm_rbf, knn, gradientboosting, extratrees, randomforest)
-2. In `features_type` choose the type of the segment-level features you wish to use 
+2. `raudio_num_features_discard`: the number of readys audio features to discard.
+3. `pyaudio_num_features` : the number of pyaudio features to keep (use 'all' for all features otherwise use a number)
+4. `gender` : 'male' or 'female' (this is not needed if the samples are already seperated)
+5. In `features_type` choose the type of the segment-level features you wish to use 
 (fused, text or audio) 
-3. In `metric` choose the validation metric (i.e. f1_macro) 
-4. In `google_credentials` write the path of google credentials file
-5. In `reference_text` choose False if no reference text is used or True if reference text is used (Attention!! If reference_text is True then the .txt reference    files should be located in the same directory as their relative wav files and have the same name)
-6. In `text_segmentation_params` 
+6. `audio_features` : 'late_fused' , 'fused' or 'audio' for late fusion of readys+pyaudio, early fusion of readys+pyaudio or readys_audio only, respectively
+7. `late_fusion`: in the field `classifier_pyaudio` define the classifier's type of pyaudio features (lr,NaiveBayes or svm_rbf), in the fielad `classifier_raudio` define the classifier type of readys_audio features (lr,NaiveBayes or svm_rbf). 
+8. In `metric` choose the validation metric (i.e. f1_macro) 
+9. In `google_credentials` write the path of google credentials file
+10. In `reference_text` choose False if no reference text is used or True if reference text is used (Attention!! If reference_text is True then the .txt reference    files should be located in the same directory as their relative wav files and have the same name)
+11. In `text_segmentation_params` 
       - `segmentation_threshold` choose None if no threshold is used,otherwise choose an integer number which defines the number of words per segment or the               segment's duration (sec). 
       - `method_of_segmentation` choose None for text segmentation in sentences,"fixed_size_text" for segmentation in fixed number of words or "fixed_window" 
         for segmentation in fixed seconds.
