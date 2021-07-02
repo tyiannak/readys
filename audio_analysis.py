@@ -69,7 +69,7 @@ def silence_features(segment_limits,dur):
     return silence_features, number_of_pauses, total_speech
 
 
-def audio_based_feature_extraction(input_file, models_directory,pyaudio_num_features="all", mode=0, pyaudio_params=None):
+def audio_based_feature_extraction(input_file, models_directory,raudio_features_discard=0,pyaudio_num_features="all", mode=0, pyaudio_params=None):
     """
         Export all features for a wav file (silence based + classifiers based)
         :param input_file: the audio file
@@ -131,6 +131,9 @@ def audio_based_feature_extraction(input_file, models_directory,pyaudio_num_feat
                 feature_value = dictionary[label]
                 feature_names.append(feature_string)
                 features.append(feature_value)
+        if raudio_features_discard != 0:
+            features = features[raudio_features_discard:]
+            feature_names = feature_names[raudio_features_discard:]
 
     # C. pyaudio features
     if mode > 0:

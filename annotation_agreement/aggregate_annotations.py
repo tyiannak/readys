@@ -16,9 +16,20 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
 
-def aggregate_annotations(file,class_number,type):
+def aggregate_annotations(file,class_number,type,gender):
 
     data = pd.read_csv(file)
+    
+    if gender == 0:
+        data = data[data['Sample_name'].str.contains("_male_")]
+    elif gender == 1:
+        data = data[data['Sample_name'].str.contains("_female_")]
+    
+    #data = data[data.Username != 'apetrogianni@uth.gr']
+    #data = data[data.Username != 'Despina']
+    #data = data[data.Username != 'kb@gmail.com']
+    #data = data[data.Username != 'electrasif']
+    #data = data[data.Username != 'rodo.kasidiari@gmail.com']
     if type == 0:
         # Create Dataframe
         aggregation = {'Sample_Name': [],
@@ -75,18 +86,18 @@ def aggregate_annotations(file,class_number,type):
             sample_names.append(sample)
             mean.append(mean_value)
             dev.append(dev_value)
-            if mean_value <= 2.5:
+            if mean_value <= 2.0:
                 winner_without_dev.append("negative")
-            elif mean_value >= 3.5:
+            elif mean_value >= 3.2:
                 winner_without_dev.append("positive")
             else:
                 winner_without_dev.append("Nan")
 
-            if mean_value <= 2.5 and dev_value < 0.75:
+            if mean_value <= 2.0 and dev_value < 0.75:
                 winner.append("negative")
                 if len(sample_dataframe[class_name].values)>=3:
                     print(sample_dataframe[class_name].values," mean:",mean_value," σ:", dev_value, " class: negative")
-            elif mean_value >= 3.5 and dev_value < 0.75:
+            elif mean_value >= 3.2 and dev_value < 0.75:
                 winner.append("positive")
                 if len(sample_dataframe[class_name].values)>=3:
                     print(sample_dataframe[class_name].values," mean:",mean_value," σ:", dev_value, " class: positive")
@@ -111,18 +122,33 @@ def aggregate_annotations(file,class_number,type):
 
     return df
 
-aggregate_annotations("annotations_database.txt",1,1)
+
 
 def save_to_csv(df,name):   
 
     df.to_csv(name, index=False)
 
 
-def report_annotations(file, class_number,annotators,type):
+def report_annotations(file, class_number,annotators,type,gender):
 
     data = pd.read_csv(file)
-    df = aggregate_annotations(file,class_number,type)
-    csv_name = 'aggregate_annotations_of_class' + str(class_number) + '.csv'
+    
+    if gender == 0:
+        g = "male"
+        print("-->Only male samples")
+        data = data[data['Sample_name'].str.contains("_male_")]
+    elif gender == 1:
+        g = "female"
+        print("-->Only female samples")
+        data = data[data['Sample_name'].str.contains("_female_")]
+    
+    #data = data[data.Username != 'apetrogianni@uth.gr']
+    #data = data[data.Username != 'Despina']
+    #data = data[data.Username != 'kb@gmail.com']
+    #data = data[data.Username != 'electrasif']
+    #data = data[data.Username != 'rodo.kasidiari@gmail.com']
+    df = aggregate_annotations(file,class_number,type,gender)
+    csv_name = 'aggregate_annotations_of_class' + str(class_number) + g +'.csv'
     save_to_csv(df, csv_name)
 
     class_column = 'Class' + str(class_number)
@@ -152,7 +178,7 @@ def report_annotations(file, class_number,annotators,type):
     print("\nAnnotations per user:\n", data['Username'].value_counts())
     user = data['Username'].value_counts()
     user.plot(kind='pie', subplots=True, shadow=True,
-              startangle=90, figsize=(15, 10), autopct='%1.1f%%')
+              startangle=90, figsize=(30, 20), autopct='%1.1f%%')
     pie_name = 'plots/pie' + class_column + '.png'
     plt.savefig(pie_name)
     plt.close()
@@ -183,10 +209,11 @@ def report_annotations(file, class_number,annotators,type):
     plt.ylabel('Number')
     plt.title('Class distribution')
     plt.tight_layout()
-    before_name = 'plots/class_distr_before' + class_column + '.png'
+    before_name = 'plots/class_distr_before' + class_column + g +'.png'
     plt.savefig(before_name)
+    plt.close()
 
-    # Class distribution (after majority or averaging) + plot without deviation (σ)
+    # Class distribution (after majority or averaging) +  without deviation (σ)
     count = df['Winner_without_dev'].value_counts()
     count = count.to_frame()
     per = count.div(count.sum(axis=0)) * 100
@@ -201,6 +228,16 @@ def report_annotations(file, class_number,annotators,type):
     print(
         "\nAggregated Class Distribution (after majority or averaging), before applying minimum number of annotators: "
         "\nBefore applying deviation limitation (σ) \nTotal: %s \n%s" % (df['Winner_without_dev'].shape[0], count))
+    #plot
+    conf = df['Winner_without_dev'].value_counts()
+    conf.plot.bar()
+    plt.xlabel('Classes')
+    plt.ylabel('Number')
+    plt.title('Class distribution')
+    plt.tight_layout()
+    after_name = 'plots/class_distr_mean' + class_column + g + '.png'
+    plt.savefig(after_name)
+    plt.close()
 
     # Class distribution (after majority or averaging) + plot with deviation (σ)
     count = df['Winner_annotation'].value_counts()
@@ -222,8 +259,9 @@ def report_annotations(file, class_number,annotators,type):
     plt.ylabel('Number')
     plt.title('Class distribution')
     plt.tight_layout()
-    after_name = 'plots/class_distr_after' + class_column +'.png'
+    after_name = 'plots/class_distr_dev' + class_column + g +'.png'
     plt.savefig(after_name)
+    plt.close()
 
     # Average agreement (confidence): average of all
     # confidences with >=2 annotations
@@ -271,7 +309,16 @@ def report_annotations(file, class_number,annotators,type):
     print('8 annotations:%s %.2f%%' % (count,
                                        numpy.divide(count,
                                                     df['Winner_annotation'].shape[0]) * 100))
-
+    ann_gr_9 = df[df['Number_annotations'] == 9]
+    count = ann_gr_9['Number_annotations'].count()
+    print('9 annotations:%s %.2f%%' % (count,
+                                       numpy.divide(count,
+                                                    df['Winner_annotation'].shape[0]) * 100))
+    ann_gr_10 = df[df['Number_annotations'] == 10]
+    count = ann_gr_10['Number_annotations'].count()
+    print('10 annotations:%s %.2f%%' % (count,
+                                       numpy.divide(count,
+                                                    df['Winner_annotation'].shape[0]) * 100))
     if type == 0:
         ann_gr = df[df['Number_annotations'] >= annotators]
 
@@ -313,10 +360,21 @@ def report_annotations(file, class_number,annotators,type):
 
         print("\nAfter applying deviation limitation (σ) \nTotal: %s \n%s" % (ann_gr['Winner_annotation'].shape[0], count))
 
+        #plot
+        conf = ann_gr['Winner_annotation'].value_counts()
+        conf.plot.bar()
+        plt.xlabel('Classes')
+        plt.ylabel('Number')
+        plt.title('Class distribution')
+        plt.tight_layout()
+        after_name = 'plots/class_distr_annotators' + class_column + g + '.png'
+        plt.savefig(after_name)
+        plt.close()
+
         print("\nAverage disagreement (average σ) : %.2f" % ann_gr['Deviation'].mean())
         ann_grB = ann_gr[ann_gr['Winner_annotation']!='Nan']
         print("\nTotal number of final samples : %.0f" % ann_grB['Winner_annotation'].shape[0])
-        name = 'aggregated_' + class_column + '.csv'
+        name = 'aggregated_' + class_column + g +'.csv'
         ann_grB.to_csv(name, index=False)
 
         ####compute average distance between user and mean
@@ -355,5 +413,7 @@ if __name__ == "__main__":
                         help="minimum number of annotators to take into account")
     parser.add_argument("-t","--type_of_aggregation", type=int, required=True,
                         help="Choose between majority vote (0) or averaging (1)")
+    parser.add_argument("-g", "--gender", type=int, required=True,
+                        help="Choose between male (0) or female (1)")
     args = parser.parse_args()
-    report_annotations('annotations_database.txt',args.class_number,args.annotators,args.type_of_aggregation)
+    report_annotations('annotations_database.txt',args.class_number,args.annotators,args.type_of_aggregation,args.gender)

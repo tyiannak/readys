@@ -399,7 +399,7 @@ def save_model(model_dict,out_folder, out_model=None, name=None):
 
 
 def plot_feature_histograms(list_of_feature_mtr, feature_names,
-                            class_names, n_columns=5):
+                            class_names, filename,n_columns=5):
     '''
     Plots the histograms of all classes and features for a given
     classification task.
@@ -442,7 +442,7 @@ def plot_feature_histograms(list_of_feature_mtr, feature_names,
             figs.append_trace(scatter_1, int(i/n_columns)+1, i % n_columns+1)
     for i in figs['layout']['annotations']:
         i['font'] = dict(size=10, color='#224488')
-    plotly.offline.plot(figs, filename="report.html", auto_open=True)
+    plotly.offline.plot(figs, filename=str(filename), auto_open=True)
 
 
 def get_color_combinations(n_classes):
@@ -517,15 +517,23 @@ def grid_init(clf, clf_name, parameters_dict,
 
     pca = PCA()
     if is_imbalanced:
+        '''
         pipe = Pipeline(steps=[
             ('sampling', sampler), ('scaler', scaler),
             ('thresholder', thresholder), ('pca', pca),
             (clf_name, clf)], memory='sklearn_tmp_memory')
-
+        '''
+        pipe = Pipeline(steps=[
+            ('sampling', sampler), ('scaler', scaler),
+            (clf_name, clf)], memory='sklearn_tmp_memory')
     else:
+        '''
         pipe = Pipeline(steps=[
             ('scaler', scaler), ('thresholder', thresholder),
             ('pca', pca), (clf_name, clf)], memory='sklearn_tmp_memory')
+        '''
+        pipe = Pipeline(steps=[
+            ('scaler', scaler), (clf_name, clf)], memory='sklearn_tmp_memory')
 
     if group:
         cv = LeaveOneGroupOut()
@@ -533,7 +541,7 @@ def grid_init(clf, clf_name, parameters_dict,
         cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3)
 
     grid_clf = GridSearchCV(
-        pipe, parameters_dict, cv=cv,
+        pipe,parameters_dict, cv=cv,
         scoring=scoring, refit=refit, n_jobs=-1, verbose=2)
 
     return grid_clf
@@ -576,7 +584,7 @@ def num_group_splits(groups):
     return logo.get_n_splits(groups=groups)
 
 
-def best_clf(classifier_name,grid, labels_set, num_splits, num_models, is_imbalanced, seed=None):
+def best_clf(classifier_type,classifier_name,grid, labels_set, num_splits, num_models, is_imbalanced, seed=None):
 
     f1_scores = []
 
@@ -617,28 +625,43 @@ def best_clf(classifier_name,grid, labels_set, num_splits, num_models, is_imbala
 
     thresholder = VarianceThreshold(threshold=0)
 
-    pca = PCA(n_components=best_params["pca__n_components"])
-    if classifier_name == 'svm_rbf':
+    #pca = PCA(n_components=best_params["pca__n_components"])
+    if classifier_type == 'svm_rbf':
         clf =  svm.SVC(
             kernel="rbf", gamma=best_params["SVM_RBF__gamma"],
             C=best_params["SVM_RBF__C"], probability=True,
             class_weight='balanced')
-    elif classifier_name == 'NaiveBayes':
+    elif classifier_type == 'svm':
+        clf = svm.SVC(gamma=best_params["SVM_RBF__gamma"],
+            C=best_params["SVM_RBF__C"], probability=True,
+            class_weight='balanced')
+    elif classifier_type == 'randomforest':
+        clf = RandomForestClassifier(n_estimators=best_params['RandomForest__n_estimators'])
+    elif classifier_type == 'NaiveBayes':
         clf = GaussianNB(priors=best_params['gaussiannb__priors'],var_smoothing=best_params['gaussiannb__var_smoothing'])
-    elif classifier_name == 'lr':
+    elif classifier_type == 'lr':
         clf = LogisticRegression(C=best_params['lr__C'],penalty=best_params['lr__penalty'],solver=best_params['lr__solver'])
-    elif classifier_name == 'knn':
+    elif classifier_type == 'knn':
         clf = KNeighborsClassifier(n_neighbors=best_params['Knn__n_neighbors'])
     if is_imbalanced:
+        '''
         pipe = Pipeline(steps=[
             ('sampling', sampler), ('scaler', scaler),
             ('thresholder', thresholder), ('pca', pca),
-            ("SVM", clf)], memory='sklearn_tmp_memory')
-
+            (classifier_name, clf)], memory='sklearn_tmp_memory')
+        '''
+        pipe = Pipeline(steps=[
+            ('sampling', sampler), ('scaler', scaler),
+            (classifier_name, clf)], memory='sklearn_tmp_memory')
     else:
+        '''
         pipe = Pipeline(steps=[
             ('scaler', scaler), ('thresholder', thresholder),
-            ('pca', pca), ("SVM", clf)], memory='sklearn_tmp_memory')
+            ('pca', pca), (classifier_name, clf)], memory='sklearn_tmp_memory')
+        '''
+
+        pipe = Pipeline(steps=[
+            ('scaler', scaler),(classifier_name, clf)], memory='sklearn_tmp_memory') 
 
     return pipe
 
@@ -709,11 +732,13 @@ def print_cross_val_results(scores, metric, labels_set, num_splits):
     return auc, confusion
 
 
-def make_graphics(cm, mean_f1):
-
-    global y_true
-    global y_pred
-    auc = roc_auc_score(y_true, y_pred)
+def make_graphics(cm, mean_f1,filename,y_t=None,y_p=None):
+    if y_t == None and y_p== None:
+        global y_true
+        global y_pred
+        auc = roc_auc_score(y_true, y_pred)
+    else:
+        auc = roc_auc_score(y_t,y_p)
     print("\n--> AUC COMPUTED FROM CONCATENATED POSTERIORS: {}".format(auc))
     titles = ["Confusion matrix, Mean F1 (macro): {:.1f}%".format(100 * mean_f1),
               "Class-wise Performance measures",
@@ -742,9 +767,12 @@ def make_graphics(cm, mean_f1):
     figs.append_trace(b2, 1, 2);
     figs.append_trace(b3, 1, 2)
 
-
-    pre, rec, thr_prre = precision_recall_curve(y_true,y_pred)
-    fpr, tpr, thr_roc = roc_curve(y_true, y_pred)
+    if y_t == None and y_p == None:
+        pre, rec, thr_prre = precision_recall_curve(y_true,y_pred)
+        fpr, tpr, thr_roc = roc_curve(y_true, y_pred)
+    else:
+        pre, rec, thr_prre = precision_recall_curve(y_t, y_p)
+        fpr, tpr, thr_roc = roc_curve(y_t, y_p)
     figs.append_trace(go.Scatter(x=thr_prre, y=pre, name="Precision",
                                      marker=mark_prop1), 2, 1)
     figs.append_trace(go.Scatter(x=thr_prre, y=rec, name="Recall",
@@ -754,7 +782,7 @@ def make_graphics(cm, mean_f1):
     figs.update_xaxes(title_text="false positive rate", row=2, col=2)
     figs.update_yaxes(title_text="true positive rate", row=2, col=2)
 
-    plotly.offline.plot(figs, filename="figs.html", auto_open=True)
+    plotly.offline.plot(figs, filename=filename, auto_open=True)
 
 
 def get_f1_score(confusion_matrix, i):
@@ -898,25 +926,31 @@ def train_recording_level_classifier(feature_matrix, labels,
                       class_weight='balanced')
         svm_parameters = {'gamma': ['auto', 'scale'],
                           'C': [0.001, 0.01,  0.5, 1.0, 5.0, 10.0, 20.0]}
-
+        '''
         parameters_dict = dict(pca__n_components=n_components,
                                SVM_RBF__gamma=svm_parameters['gamma'],
                                SVM_RBF__C=svm_parameters['C'])
-
-        grid_clf = grid_init(clf, "SVM_RBF", parameters_dict,
+        '''
+        parameters_dict = dict(SVM_RBF__gamma=svm_parameters['gamma'],
+                               SVM_RBF__C=svm_parameters['C'])
+        classifier_name = "SVM_RBF"
+        grid_clf = grid_init(clf, classifier_name, parameters_dict,
                              is_imbalanced, scoring=scorer,
                              refit=config['metric'], seed=seed, group=True)
         print("--> Training SVM rbf classifier using GridSearchCV")
     elif config['classifier_type'] == 'svm':
-        clf = svm.SVC(class_weight='balanced')
+        clf = svm.SVC(probability=True,class_weight='balanced')
         svm_parameters = {'gamma': ['auto', 'scale'],
                           'C': [1e-1, 1, 5, 1e1]}
-
+        '''
         parameters_dict = dict(pca__n_components=n_components,
                                SVM__gamma=svm_parameters['gamma'],
                                SVM__C=svm_parameters['C'])
-
-        grid_clf = grid_init(clf, "SVM", parameters_dict,
+        '''
+        parameters_dict = dict(SVM__gamma=svm_parameters['gamma'],
+                               SVM__C=svm_parameters['C'])
+        classifier_name = "SVM"
+        grid_clf = grid_init(clf, classifier_name, parameters_dict,
                              is_imbalanced, scoring=scorer,
                              refit=config['metric'], seed=seed, group=True)
         print("--> Training SVM classifier using GridSearchCV")
@@ -924,11 +958,15 @@ def train_recording_level_classifier(feature_matrix, labels,
         clf = RandomForestClassifier()
         classifier_parameters = {'n_estimators' :[10, 25, 50, 100, 200, 500]}
 
+        '''
         parameters_dict = dict(pca__n_components=n_components,
                                RandomForest__n_estimators=
                                classifier_parameters['n_estimators'])
-
-        grid_clf = grid_init(clf, "RandomForest", parameters_dict,
+        '''
+        parameters_dict = dict(RandomForest__n_estimators=
+                               classifier_parameters['n_estimators'])
+        classifier_name = "RandomForest"
+        grid_clf = grid_init(clf, classifier_name, parameters_dict,
                              is_imbalanced, scoring=scorer,
                              refit=config['metric'], seed=seed, group=True)
         print("--> Training Random Forest classifier using GridSearchCV")
@@ -936,9 +974,13 @@ def train_recording_level_classifier(feature_matrix, labels,
         clf = KNeighborsClassifier()
         classifier_parameters = {'n_neighbors': [1]}
         #3, 5, 7, 9, 11, 13, 15
+        '''
         parameters_dict = dict(pca__n_components=n_components,
                                Knn__n_neighbors=classifier_parameters['n_neighbors'])
-        grid_clf = grid_init(clf, "Knn", parameters_dict,
+        '''
+        parameters_dict = dict(Knn__n_neighbors=classifier_parameters['n_neighbors'])
+        classifier_name = "Knn"
+        grid_clf = grid_init(clf, classifier_name, parameters_dict,
                              is_imbalanced, scoring=scorer,
                              refit=config['metric'], seed=seed, group=True)
         print("--> Training Knn classifier using GridSearchCV")
@@ -948,8 +990,8 @@ def train_recording_level_classifier(feature_matrix, labels,
 
         parameters_dict = dict(pca__n_components=n_components,
                                GradientBoosting__n_estimators=classifier_parameters['n_estimators'])
-
-        grid_clf = grid_init(clf, "GradientBoosting", parameters_dict,
+        classifier_name = "GradientBoosting"
+        grid_clf = grid_init(clf, classifier_name, parameters_dict,
                              is_imbalanced, scoring=scorer,
                              refit=config['metric'], seed=seed, group=True)
         print("--> Training Gradient Boosting classifier using GridSearchCV")
@@ -959,31 +1001,50 @@ def train_recording_level_classifier(feature_matrix, labels,
 
         parameters_dict = dict(pca__n_components=n_components,
                                Extratrees__n_estimators=classifier_parameters['n_estimators'])
-
-        grid_clf = grid_init(clf, "Extratrees", parameters_dict,
+        classifier_name = "Extratrees"
+        grid_clf = grid_init(clf, classifier_name, parameters_dict,
                              is_imbalanced, scoring=scorer,
                              refit=config['metric'], seed=seed, group=True)
         print("--> Training Extra Trees classifier using GridSearchCV")
     elif config['classifier_type'] == 'NaiveBayes':
         clf = GaussianNB()
+
         classifier_parameters = {'priors': [None],'var_smoothing': np.logspace(0,-9, num=100)}
+
+        '''
         parameters_dict = dict(pca__n_components=n_components,
                                gaussiannb__priors=classifier_parameters['priors'],
                                gaussiannb__var_smoothing=classifier_parameters['var_smoothing'])
-        grid_clf = grid_init(clf, "gaussiannb", parameters_dict,
+        '''
+
+        parameters_dict = dict(gaussiannb__priors=classifier_parameters['priors'],
+                               gaussiannb__var_smoothing=classifier_parameters['var_smoothing'])
+
+        classifier_name = "gaussiannb"
+        grid_clf = grid_init(clf, classifier_name, parameters_dict,
                              is_imbalanced, scoring=scorer,
                              refit=config['metric'], seed=seed, group=True)
         print("--> Training GaussianNB classifier using GridSearchCV")
     elif config['classifier_type'] == 'lr':
         clf = LogisticRegression()
+
         classifier_parameters = {'penalty' : ['l1', 'l2'],
                                  'C' : np.logspace(-4, 4, 20),
                                  'solver' : ['liblinear']}
+
+        '''
         parameters_dict = dict(pca__n_components=n_components,
                                lr__penalty=classifier_parameters['penalty'],
                                lr__C=classifier_parameters['C'],
                                lr__solver=classifier_parameters['solver'])
-        grid_clf = grid_init(clf, "lr", parameters_dict,
+        '''
+
+        parameters_dict = dict(lr__penalty=classifier_parameters['penalty'],
+                               lr__C=classifier_parameters['C'],
+                               lr__solver=classifier_parameters['solver'])
+
+        classifier_name = "lr"
+        grid_clf = grid_init(clf, classifier_name, parameters_dict,
                              is_imbalanced, scoring=scorer,
                              refit=config['metric'], seed=seed, group=True)
         print("--> Training Logistic Regression classifier using GridSearchCV")
@@ -995,7 +1056,7 @@ def train_recording_level_classifier(feature_matrix, labels,
     grid_clf.fit(feature_matrix, labels, groups=groups)
     num_combos = grid_combinations(parameters_dict)
     num_splits = num_group_splits(groups)
-    clf_svc = best_clf(config['classifier_type'],
+    clf_svc = best_clf(config['classifier_type'],classifier_name,
         grid_clf, labels_set, num_splits,
         num_combos, is_imbalanced, seed)
 
@@ -1029,6 +1090,267 @@ def train_recording_level_classifier(feature_matrix, labels,
     print("\n--> MEAN AUC FOR CLASS 1 ACROSS ALL TESTS OF ALL GRIDSEARCHES: {}".format(auc_total))
     # make graphics of confusion matrix, class-wise performance measures and roc curves for every positive class
 
-    make_graphics(cm, mean_f1_from_cm)
+    make_graphics(cm, mean_f1_from_cm,"figs.html")
     clf_svc.fit(feature_matrix, y=labels)
     return clf_svc
+
+def train_late_fusion(readys_features,pyaudio_features,labels,is_imbalanced,config,filenames,seed):
+    if config['metric'] == 'f1_macro':
+        metric = make_scorer(f1_macro)
+    elif config['metric'] == 'f1_micro':
+        metric = make_scorer(f1_micro)
+    elif config['metric'] == 'accuracy':
+        metric = make_scorer(accuracy_score)
+    else:
+        print('Only supported evaluation metrics are: f1_macro, f1_micro, accuracy')
+        return -1
+
+    labels_set = sorted(set(labels))
+    scorer = {}
+    for label1 in labels_set:
+        for label2 in labels_set:
+            count_score = make_scorer(_count_score, label1=label1,
+                                      label2=label2)
+            scorer['count_%s_%s' % (label1, label2)] = count_score
+
+    scorer[config['metric']] = metric
+
+    n_components = [0.98, 0.99, 'mle', None]
+    #pyaudio
+    if config['late_fusion']['classifier_pyaudio'] == 'svm_rbf':
+        clf = svm.SVC(kernel='rbf', probability=True,
+                      class_weight='balanced')
+        svm_parameters = {'gamma': ['auto', 'scale'],
+                          'C': [0.001, 0.01,  0.5, 1.0, 5.0, 10.0, 20.0]}
+        '''
+        parameters_dict = dict(pca__n_components=n_components,
+                               SVM_RBF__gamma=svm_parameters['gamma'],
+                               SVM_RBF__C=svm_parameters['C'])
+        '''
+        parameters_dict = dict(SVM_RBF__gamma=svm_parameters['gamma'],
+                               SVM_RBF__C=svm_parameters['C'])
+        classifier_name = "SVM_RBF"
+        grid_clf = grid_init(clf, classifier_name, parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed, group=True)
+        print("--> Training SVM rbf PYAUDIO classifier using GridSearchCV")
+    elif config['late_fusion']['classifier_pyaudio'] == 'svm':
+        clf = svm.SVC(probability=True,class_weight='balanced')
+        svm_parameters = {'gamma': ['auto', 'scale'],
+                          'C': [1e-1, 1, 5, 1e1]}
+        '''
+        parameters_dict = dict(pca__n_components=n_components,
+                               SVM__gamma=svm_parameters['gamma'],
+                               SVM__C=svm_parameters['C'])
+        '''
+        parameters_dict = dict(SVM__gamma=svm_parameters['gamma'],
+                               SVM__C=svm_parameters['C'])
+        classifier_name = "SVM"
+        grid_clf = grid_init(clf, classifier_name, parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed, group=True)
+        print("--> Training SVM PYAUDIO classifier using GridSearchCV")
+    elif config['late_fusion']['classifier_pyaudio'] == 'NaiveBayes':
+        clf = GaussianNB()
+
+        classifier_parameters = {'priors': [None],'var_smoothing': np.logspace(0,-9, num=100)}
+
+        '''
+        parameters_dict = dict(pca__n_components=n_components,
+                               gaussiannb__priors=classifier_parameters['priors'],
+                               gaussiannb__var_smoothing=classifier_parameters['var_smoothing'])
+        '''
+
+        parameters_dict = dict(gaussiannb__priors=classifier_parameters['priors'],
+                               gaussiannb__var_smoothing=classifier_parameters['var_smoothing'])
+
+        classifier_name = "gaussiannb"
+        grid_clf = grid_init(clf, classifier_name, parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed, group=True)
+        print("--> Training GaussianNB PYAUDIO classifier using GridSearchCV")
+    elif config['late_fusion']['classifier_pyaudio']  == 'lr':
+        clf = LogisticRegression()
+
+        classifier_parameters = {'penalty' : ['l1', 'l2'],
+                                 'C' : np.logspace(-4, 4, 20),
+                                 'solver' : ['liblinear']}
+
+        '''
+        parameters_dict = dict(pca__n_components=n_components,
+                               lr__penalty=classifier_parameters['penalty'],
+                               lr__C=classifier_parameters['C'],
+                               lr__solver=classifier_parameters['solver'])
+        '''
+
+        parameters_dict = dict(lr__penalty=classifier_parameters['penalty'],
+                               lr__C=classifier_parameters['C'],
+                               lr__solver=classifier_parameters['solver'])
+
+        classifier_name = "lr"
+        grid_clf = grid_init(clf, classifier_name, parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed, group=True)
+        print("--> Training Logistic Regression PYAUDIO classifier using GridSearchCV")
+    labels_set = sorted(set(labels))
+
+    groups = make_group_list(filenames)
+
+    # use gridsearch to find best parameters
+    grid_clf.fit(pyaudio_features, labels, groups=groups)
+    num_combos = grid_combinations(parameters_dict)
+    num_splits = num_group_splits(groups)
+    clf_pyaudio = best_clf(config['late_fusion']['classifier_pyaudio'], classifier_name,
+                       grid_clf, labels_set, num_splits,
+                       num_combos, is_imbalanced, seed)
+    #readys
+    if config['late_fusion']['classifier_raudio'] == 'svm_rbf':
+        clf = svm.SVC(kernel='rbf', probability=True,
+                      class_weight='balanced')
+        svm_parameters = {'gamma': ['auto', 'scale'],
+                          'C': [0.001, 0.01,  0.5, 1.0, 5.0, 10.0, 20.0]}
+        '''
+        parameters_dict = dict(pca__n_components=n_components,
+                               SVM_RBF__gamma=svm_parameters['gamma'],
+                               SVM_RBF__C=svm_parameters['C'])
+        '''
+        parameters_dict = dict(SVM_RBF__gamma=svm_parameters['gamma'],
+                               SVM_RBF__C=svm_parameters['C'])
+        classifier_name = "SVM_RBF"
+        grid_clf = grid_init(clf, classifier_name, parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed, group=True)
+        print("--> Training SVM rbf READYS classifier using GridSearchCV")
+    elif config['late_fusion']['classifier_raudio'] == 'svm':
+        clf = svm.SVC(probability=True,class_weight='balanced')
+        svm_parameters = {'gamma': ['auto', 'scale'],
+                          'C': [1e-1, 1, 5, 1e1]}
+        '''
+        parameters_dict = dict(pca__n_components=n_components,
+                               SVM__gamma=svm_parameters['gamma'],
+                               SVM__C=svm_parameters['C'])
+        '''
+        parameters_dict = dict(SVM__gamma=svm_parameters['gamma'],
+                               SVM__C=svm_parameters['C'])
+        classifier_name = "SVM"
+        grid_clf = grid_init(clf, classifier_name, parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed, group=True)
+        print("--> Training SVM READYS classifier using GridSearchCV")
+    if config['late_fusion']['classifier_raudio'] == 'NaiveBayes':
+        clf = GaussianNB()
+
+        classifier_parameters = {'priors': [None],'var_smoothing': np.logspace(0,-9, num=100)}
+
+        '''
+        parameters_dict = dict(pca__n_components=n_components,
+                               gaussiannb__priors=classifier_parameters['priors'],
+                               gaussiannb__var_smoothing=classifier_parameters['var_smoothing'])
+        '''
+
+        parameters_dict = dict(gaussiannb__priors=classifier_parameters['priors'],
+                               gaussiannb__var_smoothing=classifier_parameters['var_smoothing'])
+
+        classifier_name = "gaussiannb"
+        grid_clf = grid_init(clf, classifier_name, parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed, group=True)
+        print("--> Training GaussianNB READYS classifier using GridSearchCV")
+    elif config['late_fusion']['classifier_raudio']  == 'lr':
+        clf = LogisticRegression()
+
+        classifier_parameters = {'penalty' : ['l1', 'l2'],
+                                 'C' : np.logspace(-4, 4, 20),
+                                 'solver' : ['liblinear']}
+
+        '''
+        parameters_dict = dict(pca__n_components=n_components,
+                               lr__penalty=classifier_parameters['penalty'],
+                               lr__C=classifier_parameters['C'],
+                               lr__solver=classifier_parameters['solver'])
+        '''
+
+        parameters_dict = dict(lr__penalty=classifier_parameters['penalty'],
+                               lr__C=classifier_parameters['C'],
+                               lr__solver=classifier_parameters['solver'])
+
+        classifier_name = "lr"
+        grid_clf = grid_init(clf, classifier_name, parameters_dict,
+                             is_imbalanced, scoring=scorer,
+                             refit=config['metric'], seed=seed, group=True)
+        print("--> Training Logistic Regression READYS classifier using GridSearchCV")
+    # use gridsearch to find best parameters
+    grid_clf.fit(readys_features, labels, groups=groups)
+    num_combos = grid_combinations(parameters_dict)
+    num_splits = num_group_splits(groups)
+    clf_readys = best_clf(config['late_fusion']['classifier_raudio'], classifier_name,
+                           grid_clf, labels_set, num_splits,
+                           num_combos, is_imbalanced, seed)
+    logo = LeaveOneGroupOut()
+    confusion = np.zeros((2,2))
+    confusion_readys = np.zeros((2, 2))
+    confusion_pyaudio = np.zeros((2, 2))
+    total_proba = []
+    total_true = []
+    proba_readys = []
+    proba_pyaudio = []
+    for train_index, test_index in logo.split(readys_features, labels, groups):
+        clf_r = clf_readys
+        clf_p = clf_pyaudio
+        X_train_pyaudio, X_test_pyaudio = pyaudio_features[train_index], pyaudio_features[test_index]
+        X_train_readys, X_test_readys = readys_features[train_index], readys_features[test_index]
+        y_train, y_test = labels[train_index], labels[test_index]
+
+        #readys
+        clf_r.fit(X_train_readys,y_train)
+        y_proba_readys = clf_r.predict_proba(X_test_readys)
+        y_readys = clf_r.predict(X_test_readys)
+        for y_readys,y_true in zip(y_readys,y_test):
+            confusion_readys[y_true][y_readys] += 1
+        proba_readys += list(y_proba_readys[:,1])
+
+        #pyaudio
+        clf_p.fit(X_train_pyaudio,y_train)
+        y_proba_pyaudio = clf_p.predict_proba(X_test_pyaudio)
+        y_pyaudio = clf_p.predict(X_test_pyaudio)
+        for y_pyaudio,y_true in zip(y_pyaudio,y_test):
+            confusion_pyaudio[y_true][y_pyaudio] += 1
+        proba_pyaudio += list(y_proba_pyaudio[:,1])
+
+        #late fusion
+        average = np.mean([y_proba_readys,y_proba_pyaudio],axis=0)
+        y_pred = np.argmax(average,axis=1)
+        for y_pred,y_true in zip(y_pred,y_test):
+            confusion[y_true][y_pred] += 1
+        total_proba += list(average[:,1])
+        total_true += list(y_test)
+
+    #readys
+    print("\n--> Readys Confusion Matrix:")
+    print(confusion_readys)
+    f1_0 = get_f1_score(confusion_readys, 0)
+    f1_1 = get_f1_score(confusion_readys, 1)
+    mean_f1_from_cm = (f1_0 + f1_1) / 2
+    print("\n--> F1 score of readys: {}".format(mean_f1_from_cm))
+    make_graphics(confusion_readys, mean_f1_from_cm,"readys.html", y_t=total_true, y_p=proba_readys)
+
+    #pyaudio
+    print("\n--> Pyaudio Confusion Matrix:")
+    print(confusion_pyaudio)
+    f1_0 = get_f1_score(confusion_pyaudio, 0)
+    f1_1 = get_f1_score(confusion_pyaudio, 1)
+    mean_f1_from_cm = (f1_0 + f1_1) / 2
+    print("\n--> F1 score of pyaudio: {}".format(mean_f1_from_cm))
+    make_graphics(confusion_pyaudio, mean_f1_from_cm,"pyaudio.html", y_t=total_true, y_p=proba_pyaudio)
+
+    #late fusion
+    print("\n--> Late Fusion CONFUSION MATRIX:")
+    print(confusion)
+    f1_0 = get_f1_score(confusion, 0)
+    f1_1 = get_f1_score(confusion, 1)
+    mean_f1_from_cm = (f1_0 + f1_1) / 2
+    print("\n--> F1 score of late fusion: {}".format(mean_f1_from_cm))
+    make_graphics(confusion, mean_f1_from_cm,"late_fusion.html",y_t=total_true,y_p=total_proba)
+    clf_pyaudio.fit(pyaudio_features, y=labels)
+    clf_readys.fit(readys_features, y=labels)
+    return clf_readys,clf_pyaudio
