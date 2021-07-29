@@ -23,7 +23,18 @@ def main(argv):
 			os.makedirs(out_path)
 
 		for f in files:
-			new_path = '\"' + os.path.join(out_path, os.path.split(f)[-1].replace(" ","_"))+'.wav' + '\"'
+			k = os.path.split(f)[-1].replace(" ","_")
+			p = k.split("_")
+			user = p[1]
+			print(user)
+			if user=='NICK':
+				user = 'Nick'
+				list = [p[0],user] + p[2:]
+				new_name = '_'.join(list)
+			else:
+				new_name = k
+			print(new_name)
+			new_path = '\"' + os.path.join(out_path, new_name)+'.wav' + '\"'
 			ffmpegString = 'ffmpeg -i ' + '\"' + f + '\"' + ' -ar ' + \
 						   str(samplingRate) + ' -ac ' + str(channels) + \
 						   ' ' + new_path

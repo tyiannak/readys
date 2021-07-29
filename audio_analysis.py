@@ -69,7 +69,7 @@ def silence_features(segment_limits,dur):
     return silence_features, number_of_pauses, total_speech
 
 
-def audio_based_feature_extraction(input_file,models_directory, pyaudio_params=None):
+def audio_based_feature_extraction(input_file, models_directory,raudio_features_discard=0,pyaudio_num_features="all", mode=0, pyaudio_params=None):
     """
         Export all features for a wav file (silence based + classifiers based)
         :param input_file: the audio file
@@ -80,9 +80,10 @@ def audio_based_feature_extraction(input_file,models_directory, pyaudio_params=N
     # A. silence features
     fs, dur = get_wav_properties(input_file)
     fs, x = aio.read_audio_file(input_file)
+
     print(input_file)
     print(len(x) / fs)
-    # get the silence estimates using pyAudioAnalysis semisupervised approach
+    # get the silence estimates using pyAudioAnalysis semi-supervised approach
     # for different windows and steps
     if dur < 6.2:
         seg_limits_short = [[0, dur]]
@@ -98,46 +99,56 @@ def audio_based_feature_extraction(input_file,models_directory, pyaudio_params=N
     silence_features_long, number_of_pauses_long, total_speech_long = \
         silence_features(seg_limits_long, dur)
 
-
-    # B. segment model-based features
-    # Load classifier:
-    dictionaries = []
-    for filename in os.listdir(models_directory):
-        model_path = os.path.join(models_directory, filename)
-        dictionary = predict_audio_labels(input_file, model_path)[0]
-        dictionaries.append(dictionary)
-
-    # list of features and feature names
-    feature_names = ["Average silence duration short (sec)",
-                     "Average silence duration long (sec)",
-                     "Silence segments per minute short (segments/min)",
-                     "Silence segments per minute long (segments/min)",
-                     "Std short","Std long","Speech ratio short (sec)",
-                     "Speech ratio long (sec)",
-                     "Word rate in speech short (words/sec)",
-                     "Word rate in speech long (words/sec)"]
     features = []
+    feature_names = []
 
-    for i in range(len(silence_features_short)):
-        features.append(silence_features_short[i])
-        features.append(silence_features_long[i])
-    for dictionary in dictionaries:
-        for label in dictionary:
-            feature_string = label + "(%)"
-            feature_value = dictionary[label]
-            feature_names.append(feature_string)
-            features.append(feature_value)
+    if mode < 2:
+
+        # B. segment model-based features
+        # Load classifier:
+        dictionaries = []
+        for filename in os.listdir(models_directory):
+            model_path = os.path.join(models_directory, filename)
+            dictionary = predict_audio_labels(input_file, model_path)[0]
+            dictionaries.append(dictionary)
+
+        # list of features and feature names
+        feature_names = ["Average silence duration short (sec)",
+                         "Average silence duration long (sec)",
+                         "Silence segments per minute short (segments/min)",
+                         "Silence segments per minute long (segments/min)",
+                         "Std short", "Std long", "Speech ratio short (sec)",
+                         "Speech ratio long (sec)",
+                         "Word rate in speech short (words/sec)",
+                         "Word rate in speech long (words/sec)"]
+
+        for i in range(len(silence_features_short)):
+            features.append(silence_features_short[i])
+            features.append(silence_features_long[i])
+        for dictionary in dictionaries:
+            for label in dictionary:
+                feature_string = label + "(%)"
+                feature_value = dictionary[label]
+                feature_names.append(feature_string)
+                features.append(feature_value)
+        if raudio_features_discard != 0:
+            features = features[raudio_features_discard:]
+            feature_names = feature_names[raudio_features_discard:]
 
     # C. pyaudio features
-    if pyaudio_params:
+    if mode > 0:
         (segment_features_stats, segment_features,
          pyaudio_feature_names) = aF.mid_feature_extraction(
             x, fs, round(pyaudio_params['mid_window'] * fs),
             round(pyaudio_params['mid_step'] * fs),
             round(fs * pyaudio_params['short_window']),
             round(fs * pyaudio_params['short_step']))
-
-        features = features + list(segment_features_stats.mean(axis=1))
+        pyaudio_list = list(segment_features_stats.mean(axis=1))
+        if pyaudio_num_features!="all":
+            #pyaudio_num_features = int(pyaudio_num_features)
+            pyaudio_list = pyaudio_list[:pyaudio_num_features-1]
+            pyaudio_feature_names = pyaudio_feature_names[:pyaudio_num_features-1]
+        features = features + pyaudio_list
         feature_names = feature_names + pyaudio_feature_names
 
     metadata = {

@@ -24,21 +24,28 @@ audio_classifier:
   out_folder: "output_models/audio/"
 
 recording_level_classifier:
-  features_type: 'text'
-  audio_features: 'fused'
+  raudio_num_features_discard: 0
+  pyaudio_num_features: 'all'
+  gender: 'male'
+  features_type: 'fused'
+  audio_features: 'late_fused'
+  late_fusion: {
+    'classifier_pyaudio': 'lr', 
+    'classifier_raudio': 'lr'
+  }
   pyaudio_params: {
     'mid_window': 3,
     'mid_step': 3,
     'short_window': 0.05,
     'short_step': 0.05
-}
-  classifier_type: 'svm_rbf'
+  }
+  classifier_type: 'lr'
   metric: 'f1_macro'
   google_credentials: 'apikey.json'
   reference_text: False
   text_segmentation_params: {
-     'segmentation_threshold' : None, 
-     'method_of_segmentation' : None
+     'segmentation_threshold' : 3, 
+     'method_of_segmentation' : 'fixed_window'
   }
   audio_models_folder: "models/output_models/audio/"
   text_models_folder: "models/output_models/text/"

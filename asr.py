@@ -61,7 +61,7 @@ def audio_to_asr_text(audio_path, google_credentials_file):
         if dur < cur_end:
             cur_end = dur
             
-        command = f"ffmpeg -i \"{audio_path}\" -ss {cur_pos} -to " \
+        command = f"ffmpeg -i {audio_path} -ss {cur_pos} -to " \
                   f"{cur_end} temp.wav -loglevel panic -y"
         os.system(command)
         with io.open("temp.wav", "rb") as f:
