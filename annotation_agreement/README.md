@@ -15,7 +15,7 @@ An example of such a file is given.
 In order to run the aggregation of annotations write the following command: 
 
 ```
-python3 aggregate_annotations.py -c class_number -a annotators -t type_of_aggregation -g gender
+python3 aggregate_annotations.py -c class_number -a annotators -t type_of_aggregation -g gender -ml mean_low -mh mean_high -d deviation
 ``` 
 
 Where: 
@@ -25,6 +25,9 @@ Where:
 - annotators: an integer that defines the annotator's threshold. For example, if annotators = 3 then we take into account only the samples that are annotated by 3 or more annotators. 
 - type_of_aggregation: use 0 for majority vote or 1 for averaging
 - gender: use 0 for male samples or 1 for female samples
+- mean_low: the threshold below which the mean value of the annotations must be obeyed in order for the sample to be considered as negative
+- mean_high: the threshold above which the mean value of the annotations must be obeyed in order for the sample to be considered as positive
+- deviation: the threshold below which the deviation of the annotations must be obeyed in order for the sample to be valid (not to be discarded)
 
 ### results
 When running the above command, the following files will be produced: 
