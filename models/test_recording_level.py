@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.realpath(__file__)), '../'))
 
 from models.recording_level_feature_extraction \
-    import RecordingLevelFeatureExtraction
+    import RecordingLevelFeatureExtraction,RecordingLevelFeatureLoading
 import argparse
 import yaml
 import os
@@ -53,8 +53,6 @@ def predict_recording_level_label(audio_file, model1, model2=None):
     basic_features_params['gender'] = model_dict['gender']
 
 
-    #feature_extraction
-    feature_extractor = RecordingLevelFeatureExtraction(basic_features_params)
     if basic_features_params['reference_text']:
         folder = os.path.dirname(audio_file)
         file_name = os.path.basename(audio_file)
@@ -63,8 +61,14 @@ def predict_recording_level_label(audio_file, model1, model2=None):
         textfile = [os.path.join(folder, file_name)]
     else:
         textfile = []
-    fused_features, fused_names, readys_features, readys_names, pyaudio_features, pyaudio_names, labels, filenames= \
-        feature_extractor.extract_recording_level_features([audio_file],textfile,['positive'])
+    if audio_file.endswith('.wav'):
+        feature_extractor = RecordingLevelFeatureExtraction(basic_features_params)
+        fused_features, fused_names, readys_features, readys_names, pyaudio_features, pyaudio_names, labels, filenames = \
+            feature_extractor.extract_recording_level_features([audio_file], textfile, ['positive'])
+    else:
+        feature_extractor = RecordingLevelFeatureLoading(basic_features_params)
+        fused_features, fused_names, readys_features, readys_names, pyaudio_features, pyaudio_names, labels, filenames= \
+            feature_extractor.load_recording_level_features([audio_file],textfile,['positive'])
     print(readys_names)
     print(readys_features)
     print(pyaudio_names)
@@ -75,7 +79,7 @@ def predict_recording_level_label(audio_file, model1, model2=None):
         class_id = classifier.predict(fused_features)
         class_id = int(class_id)
         class_name = class_mapping[class_id]
-    elif basic_features_params == "audio":
+    elif basic_features_params['audio_features'] == "audio":
         class_id = classifier.predict(readys_features)
         class_id = int(class_id)
         class_name = class_mapping[class_id]
@@ -88,8 +92,8 @@ def predict_recording_level_label(audio_file, model1, model2=None):
         y_pred = np.argmax(average, axis=1)
         class_id = int(y_pred)
         class_name = class_mapping[class_id]
-    print("class name:",class_name)
-    print("class id:",class_id)
+    print("class name:", class_name)
+    print("class id:", class_id)
     return
 
 
@@ -97,7 +101,7 @@ def predict_recording_level_label(audio_file, model1, model2=None):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input",required=True,
-                        help="the path of audio input file")
+                        help="the path of audio input file or MetaAudio feature file")
     parser.add_argument("-m", "--model_path", required=True,
                         help="the path of the model that "
                              "we are gonna use to test")
