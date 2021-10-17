@@ -15,7 +15,7 @@ An example of such a file is given.
 In order to run the aggregation of annotations write the following command: 
 
 ```
-python3 aggregate_annotations.py -c class_number -a annotators -t type_of_aggregation -g gender -ml mean_low -mh mean_high -d deviation
+python3 aggregate_annotations.py -c class_number -a annotators -t type_of_aggregation -g gender -ml mean_low -mh mean_high -d deviation -ea exclude_annotators
 ``` 
 
 Where: 
@@ -27,7 +27,8 @@ Where:
 - gender: use 0 for male samples or 1 for female samples
 - mean_low: the threshold below which the mean value of the annotations must be obeyed in order for the sample to be considered as negative
 - mean_high: the threshold above which the mean value of the annotations must be obeyed in order for the sample to be considered as positive
-- deviation: the threshold below which the deviation of the annotations must be obeyed in order for the sample to be valid (not to be discarded)
+- deviation(optional) (default=0.75): the threshold below which the deviation of the annotations must be obeyed in order for the sample to be valid (not to be discarded)
+- exclude_annotatos(optional)(default=None): list of annotators' names (e.g. annotator1 annotator8) to be excluded from the proceedings due to their high value of average disagreement. Note: to use this argument it is recommended first to run the command once so as to observe the average disagreements of the annotators and consequently deside which of them to exclude.   
 
 ### results
 When running the above command, the following files will be produced: 
