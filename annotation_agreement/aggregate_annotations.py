@@ -430,4 +430,4 @@ if __name__ == "__main__":
                         help="deviation threshold")
     parser.add_argument("-ea", "--exclude_annotator", type=str, nargs='+', required=False, default=None, help="the annotators' names to be excluded the from the proceedings")
     args = parser.parse_args()
-    report_annotations('annotations_database_new.txt',args.class_number,args.annotators,args.type_of_aggregation,args.gender,args.mean_low,args.mean_high,args.deviation,args.exclude_annotator)
+    report_annotations('annotations_database.txt',args.class_number,args.annotators,args.type_of_aggregation,args.gender,args.mean_low,args.mean_high,args.deviation,args.exclude_annotator)
