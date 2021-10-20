@@ -16,15 +16,19 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
 
-def aggregate_annotations(file,class_number,type,gender):
+def aggregate_annotations(file, class_number, type, gender, mean_low, mean_high, deviation=0.75, exclude_annotator=None):
 
     data = pd.read_csv(file)
     
     if gender == 0:
-        data = data[data['Sample_name'].str.contains("_male_")]
+        data = data[data['Sample_name'].str.contains("_male")]
     elif gender == 1:
-        data = data[data['Sample_name'].str.contains("_female_")]
-    
+        data = data[data['Sample_name'].str.contains("_female")]
+
+    if exclude_annotator != None:
+        for annotator in exclude_annotator:
+            data = data[data.Username != annotator]
+    #data = data[data.Username != 'apetrogianni@uth.gr']
     #data = data[data.Username != 'apetrogianni@uth.gr']
     #data = data[data.Username != 'Despina']
     #data = data[data.Username != 'kb@gmail.com']
@@ -86,18 +90,18 @@ def aggregate_annotations(file,class_number,type,gender):
             sample_names.append(sample)
             mean.append(mean_value)
             dev.append(dev_value)
-            if mean_value <= 2.0:
+            if mean_value <= mean_low:
                 winner_without_dev.append("negative")
-            elif mean_value >= 3.2:
+            elif mean_value >= mean_high:
                 winner_without_dev.append("positive")
             else:
                 winner_without_dev.append("Nan")
 
-            if mean_value <= 2.0 and dev_value < 0.75:
+            if mean_value <= mean_low and dev_value < deviation:
                 winner.append("negative")
                 if len(sample_dataframe[class_name].values)>=3:
                     print(sample_dataframe[class_name].values," mean:",mean_value," σ:", dev_value, " class: negative")
-            elif mean_value >= 3.2 and dev_value < 0.75:
+            elif mean_value >= mean_high and dev_value < deviation:
                 winner.append("positive")
                 if len(sample_dataframe[class_name].values)>=3:
                     print(sample_dataframe[class_name].values," mean:",mean_value," σ:", dev_value, " class: positive")
@@ -129,25 +133,28 @@ def save_to_csv(df,name):
     df.to_csv(name, index=False)
 
 
-def report_annotations(file, class_number,annotators,type,gender):
+def report_annotations(file, class_number,annotators,type,gender,mean_low,mean_high,deviation=0.75,exclude_annotator=None):
 
     data = pd.read_csv(file)
     
     if gender == 0:
         g = "male"
         print("-->Only male samples")
-        data = data[data['Sample_name'].str.contains("_male_")]
+        data = data[data['Sample_name'].str.contains("_male")]
     elif gender == 1:
         g = "female"
         print("-->Only female samples")
-        data = data[data['Sample_name'].str.contains("_female_")]
-    
+        data = data[data['Sample_name'].str.contains("_female")]
+
+    if exclude_annotator != None:
+        for annotator in exclude_annotator:
+            data = data[data.Username != annotator]
     #data = data[data.Username != 'apetrogianni@uth.gr']
     #data = data[data.Username != 'Despina']
     #data = data[data.Username != 'kb@gmail.com']
     #data = data[data.Username != 'electrasif']
     #data = data[data.Username != 'rodo.kasidiari@gmail.com']
-    df = aggregate_annotations(file,class_number,type,gender)
+    df = aggregate_annotations(file,class_number,type,gender,mean_low,mean_high,deviation,exclude_annotator)
     csv_name = 'aggregate_annotations_of_class' + str(class_number) + g +'.csv'
     save_to_csv(df, csv_name)
 
@@ -415,5 +422,12 @@ if __name__ == "__main__":
                         help="Choose between majority vote (0) or averaging (1)")
     parser.add_argument("-g", "--gender", type=int, required=True,
                         help="Choose between male (0) or female (1)")
+    parser.add_argument("-ml", "--mean_low", type=float, required=True,
+                        help="Low mean threshold")
+    parser.add_argument("-mh", "--mean_high", type=float, required=True,
+                        help="High mean threshold")
+    parser.add_argument("-d", "--deviation", type=float, required=False, default=0.75,
+                        help="deviation threshold")
+    parser.add_argument("-ea", "--exclude_annotator", type=str, nargs='+', required=False, default=None, help="the annotators' names to be excluded the from the proceedings")
     args = parser.parse_args()
-    report_annotations('annotations_database.txt',args.class_number,args.annotators,args.type_of_aggregation,args.gender)
+    report_annotations('annotations_database.txt',args.class_number,args.annotators,args.type_of_aggregation,args.gender,args.mean_low,args.mean_high,args.deviation,args.exclude_annotator)

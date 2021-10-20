@@ -21,6 +21,232 @@ import numpy as np
 from models.utils import load_classifiers
 
 
+class RecordingLevelFeatureLoading(object):
+    def __init__(self, basic_features_params):
+        """
+            Initializes an RecordingLevelFeatureLoading object by loading the
+            basic feature extraction parameters
+            :param basic_features_params: basic feature extraction parameters
+        """
+        if basic_features_params["gender"] == "male" or basic_features_params["gender"] == "female":
+            self.gender = basic_features_params["gender"]
+        else:
+            self.gender = None
+        self.basic_features_params = basic_features_params
+
+    def fit(self):
+        # comply with scikit-learn transformer requirement
+        return self
+
+    def transform(self, folder):
+        # comply with scikit-learn transformer requirement
+        """
+        Extract features on a dataset which lies under the folder directory
+        :param folder: the directory in which the dataset is located.
+                        Each subfolder of the folder must contain instances
+                        of a specific class.
+        :return: 1. features: features (fused or audio or text) for each
+                    dataset instance
+                 2. labels: list of labels
+                 3. idx2folder: a mapping from label numbers to label names
+        """
+        print("--> Loading recording level features")
+        filenames = []
+        labels = []
+        textnames = []
+        folders = [x[0] for x in os.walk(folder)]
+        folders = sorted(folders[1:])
+        folder_names = [os.path.split(folder)[1] for folder in folders]
+        reference_text = self.basic_features_params['reference_text']
+
+        num_of_samples_per_class = []
+        class_names = []
+        if folders:
+            for folder in folders:
+                count = 0
+                for f in glob.iglob(os.path.join(folder, '*_MetaAudio.npz')):
+                    if reference_text:
+                        folder = os.path.dirname(f)
+                        file_name = os.path.basename(f)
+                        file_name = os.path.splitext(file_name)[0]
+                        file_name = file_name + '.txt'
+                        textnames.append(os.path.join(folder, file_name))
+                    filenames.append(f)
+                    count += 1
+                    labels.append(os.path.split(folder)[1])
+                class_names.append(os.path.split(folder)[1])
+                num_of_samples_per_class.append(count)
+            folder2idx, idx2folder = folders_mapping(folders=folder_names)
+            labels = list(map(lambda x: folder2idx[x], labels))
+        else:
+            filenames = [folder]
+        print(labels)
+        print(idx2folder)
+        # Match filenames with labels
+        print("class names", class_names)
+        fused_features, fused_names, readys_features, readys_names, pyaudio_features, pyaudio_names, labels, filenames = \
+            self.load_recording_level_features(filenames, textnames, labels)
+        labels = np.asarray(labels)
+        feature_list = []
+        readys_list = []
+        pyaudio_list = []
+        if readys_features == []  and pyaudio_features == []:
+            index = 0
+            for num_of_samples in num_of_samples_per_class:
+                class_features = fused_features[index:index+num_of_samples]
+                class_features = np.asarray(class_features)
+                feature_list.append(class_features)
+                index += num_of_samples
+            print(fused_names)
+            fused_features = np.asarray(fused_features)
+        else:
+            index = 0
+            for num_of_samples in num_of_samples_per_class:
+                class_features_readys = readys_features[index:index+num_of_samples]
+                class_features_readys = np.asarray(class_features_readys)
+                readys_list.append(class_features_readys)
+                class_features_pyaudio = pyaudio_features[index:index + num_of_samples]
+                class_features_pyaudio = np.asarray(class_features_pyaudio)
+                pyaudio_list.append(class_features_pyaudio)
+                index += num_of_samples
+            print("Readys features:",readys_names)
+            readys_features = np.asarray(readys_features)
+            print("Pyaudio features:", pyaudio_names)
+            pyaudio_features = np.asarray(pyaudio_features)
+        return fused_features, feature_list, fused_names, readys_features,\
+               readys_list, readys_names, pyaudio_features, pyaudio_list,\
+               pyaudio_names, labels, idx2folder, class_names, filenames
+
+    def load_recording_level_features(self, filenames, textnames, labels):
+        """
+        Load unique overall files' features
+
+        Parameters
+        ----------
+
+        filenames :
+            List of input feature filenames
+
+        textnames :
+            List of input reference text filenames
+        Returns
+        -------
+
+        overall_features:
+            List of files' features
+        file_features_names:
+            List of feature names
+
+        """
+        features_type = self.basic_features_params['features_type']
+
+        overall_features = []
+        overall_raudio_features = []
+        overall_pyaudio_features = []
+
+        audio_features = []
+        audio_features_names = []
+        raudio_features_names = []
+        pyaudio_features_names = []
+        new_labels = []
+        new_filenames = []
+        for count, file in enumerate(filenames):
+            text_not_exist = False
+            if textnames == []:
+                reference_text = None
+            else:
+                reference_text = textnames[count]
+            if features_type == "fused" or features_type == "audio":
+                pyaudio_num_features = self.basic_features_params['pyaudio_num_features']
+                raudio_features_discard = self.basic_features_params['raudio_num_features_discard']
+                if self.basic_features_params['audio_features'] == "fused":
+                    npzfile = np.load(file)
+                    r_names = list(npzfile['feature_names'])
+                    r_features = list(npzfile['features'])
+                    if raudio_features_discard != 0:
+                            r_features = r_features[raudio_features_discard:]
+                            r_names = r_names[raudio_features_discard:]
+                    py_name = "_".join(file.split('_')[:-1]) + '_LowLevelAudio.npz'
+                    npzfile = np.load(py_name)
+                    py_names = list(npzfile['feature_names'])
+                    py_features = list(npzfile['features'])
+                    if pyaudio_num_features != "all":
+                        # pyaudio_num_features = int(pyaudio_num_features)
+                        py_features = py_features[:pyaudio_num_features - 1]
+                        py_names = py_names[:pyaudio_num_features - 1]
+                    audio_features = r_features + py_features
+                    audio_features_names = r_names + py_names
+                elif self.basic_features_params['audio_features'] == "pyaudio":
+                    py_name = "_".join(file.split('_')[:-1]) + '_LowLevelAudio.npz'
+                    npzfile = np.load(py_name)
+                    audio_features_names = list(npzfile['feature_names'])
+                    audio_features = list(npzfile['features'])
+                    if pyaudio_num_features != "all":
+                        # pyaudio_num_features = int(pyaudio_num_features)
+                        audio_features = audio_features[:pyaudio_num_features - 1]
+                        audio_features_names = audio_features_names[:pyaudio_num_features - 1]
+                elif self.basic_features_params['audio_features'] == "audio":
+                    npzfile = np.load(file)
+                    audio_features_names = list(npzfile['feature_names'])
+                    audio_features = list(npzfile['features'])
+                    if raudio_features_discard != 0:
+                        audio_features = audio_features[raudio_features_discard:]
+                        audio_features_names = audio_features_names[raudio_features_discard:]
+                else:
+                    npzfile = np.load(file)
+                    raudio_features_names = list(npzfile['feature_names'])
+                    raudio_features = list(npzfile['features'])
+                    if raudio_features_discard != 0:
+                        raudio_features = raudio_features[raudio_features_discard:]
+                        raudio_features_names = raudio_features_names[raudio_features_discard:]
+                    py_name = "_".join(file.split('_')[:-1]) + '_LowLevelAudio.npz'
+                    npzfile = np.load(py_name)
+                    pyaudio_features_names = list(npzfile['feature_names'])
+                    pyaudio_features = list(npzfile['features'])
+                    if pyaudio_num_features != "all":
+                        # pyaudio_num_features = int(pyaudio_num_features)
+                        pyaudio_features = pyaudio_features[:pyaudio_num_features - 1]
+                        pyaudio_features_names = pyaudio_features_names[:pyaudio_num_features - 1]
+                if features_type == "fused":
+                    t_name = "_".join(file.split('_')[:-1]) + '_Text.npz'
+                    npzfile = np.load(t_name)
+                    text_features_names = list(npzfile['feature_names'])
+                    text_features = list(npzfile['features'])
+                    if text_features == []:
+                        text_not_exist = True
+                    if self.basic_features_params['audio_features'] == "late_fused":
+                        raudio_features += text_features
+                        raudio_features_names += text_features_names
+                    else:
+                        audio_features += text_features
+                        audio_features_names += text_features_names
+                file_recording_level_features = audio_features
+                file_features_names = audio_features_names
+            elif features_type == "text":
+                t_name = "_".join(file.split('_')[:-1]) + '_Text.npz'
+                npzfile = np.load(t_name)
+                file_features_names = list(npzfile['feature_names'])
+                file_recording_level_features = list(npzfile['features'])
+                if file_recording_level_features == []:
+                    text_not_exist = True
+            if self.basic_features_params['audio_features'] == "late_fused":
+                raudio_features = np.asarray(raudio_features)
+                pyaudio_features = np.asarray(pyaudio_features)
+                if text_not_exist == False:
+                    overall_raudio_features.append(raudio_features)
+                    overall_pyaudio_features.append(pyaudio_features)
+                    new_labels.append(labels[count])
+                    new_filenames.append(file)
+            else:
+                file_recording_level_features = \
+                    np.asarray(file_recording_level_features)
+                if text_not_exist == False:
+                    overall_features.append(file_recording_level_features)
+                    new_labels.append(labels[count])
+                    new_filenames.append(file)
+        return overall_features, file_features_names, overall_raudio_features, raudio_features_names, overall_pyaudio_features, pyaudio_features_names, new_labels, new_filenames
+
+
 class RecordingLevelFeatureExtraction(object):
     def __init__(self, basic_features_params):
         """
@@ -64,16 +290,6 @@ class RecordingLevelFeatureExtraction(object):
         if folders:
             for folder in folders:
                 count = 0
-                if reference_text:
-                    for f in glob.iglob(os.path.join(folder, '*.txt')):
-                        if self.gender is not None:
-                            if "female" not in f:
-                                if self.gender == "female":
-                                    continue
-                            elif self.gender == "male":
-                                continue
-
-                        textnames.append(f)
                 for f in glob.iglob(os.path.join(folder, '*.wav')):
                     '''
                     if self.gender is not None:
@@ -83,6 +299,12 @@ class RecordingLevelFeatureExtraction(object):
                         elif self.gender == "male":
                             continue
                     '''
+                    if reference_text:
+                        folder = os.path.dirname(f)
+                        file_name = os.path.basename(f)
+                        file_name = os.path.splitext(file_name)[0]
+                        file_name = file_name + '.txt'
+                        textnames.append(os.path.join(folder, file_name))
                     filenames.append(f)
                     count += 1
                     labels.append(os.path.split(folder)[1])

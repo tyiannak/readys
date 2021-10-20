@@ -5,7 +5,7 @@ This script is used to train and validate recording-level classifiers
 import os
 import argparse
 import yaml
-from recording_level_feature_extraction import RecordingLevelFeatureExtraction
+from recording_level_feature_extraction import RecordingLevelFeatureExtraction, RecordingLevelFeatureLoading
 from utils import check_balance,train_recording_level_classifier,save_model,plot_feature_histograms,train_late_fusion
 
 
@@ -21,20 +21,28 @@ config = conf['recording_level_classifier']
 seed = 500
 
 
-def recording_level_classifier(inputs_path,model_name):
+def recording_level_classifier(inputs_path, model_name, features_given=False):
     '''
     Train recording level classifier using audio and text features
     :param inputs_path: the directory where samples are divided into
     class-folders
     :param model_name: the name of the model that we are gonna train
+    :param features_given: True if extracted features are given as input, instead of wav files
     :return: None. The classifier will be saved at the directory
     which is declared at the config.yaml file and with the input name.
     '''
     basic_features_params = config
-    feature_extractor = RecordingLevelFeatureExtraction(basic_features_params)
-    fused_features, feature_list, fused_names, readys_features, \
-    readys_list, readys_names, pyaudio_features, pyaudio_list, \
-    pyaudio_names, labels, class_mapping, class_names, filenames = feature_extractor.transform(inputs_path)
+
+    if features_given:
+        feature_loader = RecordingLevelFeatureLoading(basic_features_params)
+        fused_features, feature_list, fused_names, readys_features, \
+        readys_list, readys_names, pyaudio_features, pyaudio_list, \
+        pyaudio_names, labels, class_mapping, class_names, filenames = feature_loader.transform(inputs_path)
+    else:
+        feature_extractor = RecordingLevelFeatureExtraction(basic_features_params)
+        fused_features, feature_list, fused_names, readys_features, \
+        readys_list, readys_names, pyaudio_features, pyaudio_list, \
+        pyaudio_names, labels, class_mapping, class_names, filenames = feature_extractor.transform(inputs_path)
 
     is_imbalanced = check_balance(labels)
     if basic_features_params['audio_features'] == "late_fused":
@@ -57,15 +65,15 @@ def recording_level_classifier(inputs_path,model_name):
         model_dict['gender'] = config['gender']
         out_folder = config['out_folder']
         if model_name is None:
-            save_model(model_dict, out_folder, name="basic_classifier_pyaudio")
+            save_model(model_dict, out_folder, name="basic_classifier_LLA")
         else:
-            save_model(model_dict, out_folder, out_model=model_name +"_pyaudio")
+            save_model(model_dict, out_folder, out_model=model_name +"_LLA")
         model_dict['classifier_type'] = config['late_fusion']['classifier_raudio']
         model_dict['classifier'] = clf_readys
         if model_name is None:
-            save_model(model_dict, out_folder, name="basic_classifier_readys")
+            save_model(model_dict, out_folder, name="basic_classifier_MA")
         else:
-            save_model(model_dict, out_folder, out_model=model_name + "_readys")
+            save_model(model_dict, out_folder, out_model=model_name + "_MA")
     else:
         filename = "report.html"
         plot_feature_histograms(feature_list, fused_names,class_names,filename)
@@ -98,7 +106,12 @@ if __name__ == '__main__':
     parser.add_argument("-mn","--model_name", required=True,
                         help="the name of the model "
                              "that we are gonna train")
+    parser.add_argument('-f',
+                        '--features',
+                        required=False,
+                        action='store_true',
+                        help='Features are  given as input')
     args = parser.parse_args()
     if os.path.exists(args.input) is False:
         raise FileNotFoundError()
-    recording_level_classifier(args.input, args.model_name)
+    recording_level_classifier(args.input, args.model_name, args.features)
