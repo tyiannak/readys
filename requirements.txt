@@ -45,7 +45,7 @@ imbalanced-learn==0.8.0
 imblearn==0.0
 importlib-metadata==2.0.0
 Jinja2==2.11.2
-joblib==0.16.0
+joblib==1.2.0
 librosa==0.8.1
 matplotlib==3.3.2
 multidict==4.7.6
