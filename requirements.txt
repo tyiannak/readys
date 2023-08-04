@@ -44,7 +44,7 @@ httplib2==0.18.1
 imbalanced-learn==0.8.0
 imblearn==0.0
 importlib-metadata==2.0.0
-Jinja2==2.11.2
+Jinja2==2.11.3
 joblib==0.16.0
 librosa==0.8.1
 matplotlib==3.3.2
